@@ -6,7 +6,7 @@ extern crate rand;
 use bellman::{Circuit, ConstraintSystem, SynthesisError};
 use pairing::{Engine, Field, PrimeField};
 
-mod cube;
+mod dummy;
 
 fn main(){
     use pairing::bls12_381::{Bls12, Fr};
@@ -15,7 +15,7 @@ fn main(){
         create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof, Proof,
     };
 
-    println!("Prove that I know x such that x^3 + x + 5 == 35.");
+    println!("I know the value of 2^(2^1000)");
 
     let rng = &mut thread_rng();
 
@@ -23,8 +23,8 @@ fn main(){
 
     // Create parameters for our circuit
     let params = {
-        let c = cube::CubeDemo::<Bls12> {
-            x: None
+        let c = dummy::DummyDemo::<Bls12> {
+            xx: None
         };
 
         generate_random_parameters(c, rng).unwrap()
@@ -36,16 +36,16 @@ fn main(){
     println!("Creating proofs...");
 
     // Create an instance of circuit
-    let c = cube::CubeDemo::<Bls12> {
-        x: Fr::from_str("3")
+    let c = dummy::DummyDemo::<Bls12> {
+        xx: Fr::from_str("3")
     };
 
     // Create a groth16 proof with our parameters.
     let proof = create_random_proof(c, &params, rng).unwrap();
 
-    assert!(verify_proof(
+    println!("{}", verify_proof(
         &pvk,
         &proof,
-        &[Fr::from_str("35").unwrap()]
+        &[]
     ).unwrap());
 }
