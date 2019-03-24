@@ -222,6 +222,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
 
     prover.alloc_input(|| "", || Ok(E::Fr::one()))?;
 
+    print!("Initialize circuit...");
     circuit.synthesize(&mut prover)?;
 
     for i in 0..prover.input_assignment.len() {
@@ -231,6 +232,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
             |lc| lc,
         );
     }
+    println!(" done!");
 
     let worker = Worker::new();
 
@@ -240,27 +242,37 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
         let mut c = EvaluationDomain::from_coeffs(prover.c)?;
+        print!("Run ifft and coset_fft for A, B, and C {{\n");
         a.ifft(&worker);
         a.coset_fft(&worker);
         b.ifft(&worker);
         b.coset_fft(&worker);
         c.ifft(&worker);
         c.coset_fft(&worker);
+        println!("}} done!");
 
+        print!("Calculating A * B - C...");
         a.mul_assign(&worker, &b);
         drop(b);
         a.sub_assign(&worker, &c);
         drop(c);
+        println!(" done!");
+
+        print!("Divide result by Z(t)... {{\n");
         a.divide_by_z_on_coset(&worker);
         a.icoset_fft(&worker);
+        println!("}} done!");
+
         let mut a = a.into_coeffs();
         let a_len = a.len() - 1;
         a.truncate(a_len);
         // TODO: parallelize if it's even helpful
         let a = Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>());
 
+        print!("Multiexp...");
         multiexp(&worker, params.get_h(a.len())?, FullDensity, a)
     };
+    println!(" done!"); // For Multiexp
 
     // TODO: parallelize if it's even helpful
     let input_assignment = Arc::new(prover.input_assignment.into_iter().map(|s| s.into_repr()).collect::<Vec<_>>());
@@ -286,7 +298,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
     let b_g1_aux = multiexp(&worker, b_g1_aux_source, b_aux_density.clone(), aux_assignment.clone());
 
     let (b_g2_inputs_source, b_g2_aux_source) = params.get_b_g2(b_input_density_total, b_aux_density_total)?;
-    
+
     let b_g2_inputs = multiexp(&worker, b_g2_inputs_source, b_input_density, input_assignment);
     let b_g2_aux = multiexp(&worker, b_g2_aux_source, b_aux_density, aux_assignment);
 
