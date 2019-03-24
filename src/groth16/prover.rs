@@ -222,7 +222,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
 
     prover.alloc_input(|| "", || Ok(E::Fr::one()))?;
 
-    print!("Initialize circuit...");
+    println!("Initialize circuit...");
     circuit.synthesize(&mut prover)?;
 
     for i in 0..prover.input_assignment.len() {
@@ -232,7 +232,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
             |lc| lc,
         );
     }
-    println!(" done!");
+    println!("Done!");
 
     let worker = Worker::new();
 
@@ -242,26 +242,26 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
         let mut c = EvaluationDomain::from_coeffs(prover.c)?;
-        print!("Run ifft and coset_fft for A, B, and C {{\n");
+        println!("Run ifft and coset_fft for A, B, and C {{");
         a.ifft(&worker);
         a.coset_fft(&worker);
         b.ifft(&worker);
         b.coset_fft(&worker);
         c.ifft(&worker);
         c.coset_fft(&worker);
-        println!("}} done!");
+        println!("}} Done!");
 
-        print!("Calculating A * B - C...");
+        println!("Calculating A * B - C...");
         a.mul_assign(&worker, &b);
         drop(b);
         a.sub_assign(&worker, &c);
         drop(c);
-        println!(" done!");
+        println!("Done!");
 
-        print!("Divide result by Z(t)... {{\n");
+        println!("Divide result by Z(t)... {{");
         a.divide_by_z_on_coset(&worker);
         a.icoset_fft(&worker);
-        println!("}} done!");
+        println!("}} Done!");
 
         let mut a = a.into_coeffs();
         let a_len = a.len() - 1;
@@ -269,10 +269,8 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         // TODO: parallelize if it's even helpful
         let a = Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>());
 
-        print!("Multiexp...");
         multiexp(&worker, params.get_h(a.len())?, FullDensity, a)
     };
-    println!(" done!"); // For Multiexp
 
     // TODO: parallelize if it's even helpful
     let input_assignment = Arc::new(prover.input_assignment.into_iter().map(|s| s.into_repr()).collect::<Vec<_>>());
@@ -321,22 +319,38 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         g_c.add_assign(&vk.alpha_g1.mul(s));
         g_c.add_assign(&vk.beta_g1.mul(r));
     }
+    println!("Waiting for a_inputs (multiexp)...");
     let mut a_answer = a_inputs.wait()?;
+    println!("Done!");
+    println!("Waiting for a_aux (multiexp)...");
     a_answer.add_assign(&a_aux.wait()?);
+    println!("Done!");
     g_a.add_assign(&a_answer);
     a_answer.mul_assign(s);
     g_c.add_assign(&a_answer);
 
+    println!("Waiting for b_g1_inputs (multiexp)...");
     let mut b1_answer = b_g1_inputs.wait()?;
+    println!("Done!");
+    println!("Waiting for b_g1_aux (multiexp)...");
     b1_answer.add_assign(&b_g1_aux.wait()?);
+    println!("Done!");
+    println!("Waiting for b_g2_inputs (multiexp)...");
     let mut b2_answer = b_g2_inputs.wait()?;
+    println!("Done!");
+    println!("Waiting for b_g2_aux (multiexp)...");
     b2_answer.add_assign(&b_g2_aux.wait()?);
+    println!("Done!");
 
     g_b.add_assign(&b2_answer);
     b1_answer.mul_assign(r);
     g_c.add_assign(&b1_answer);
+    println!("Waiting for h (multiexp)...");
     g_c.add_assign(&h.wait()?);
+    println!("Done!");
+    println!("Waiting for l (multiexp)...");
     g_c.add_assign(&l.wait()?);
+    println!("Done!");
 
     Ok(Proof {
         a: g_a.into_affine(),
