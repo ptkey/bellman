@@ -21,5 +21,4 @@ cargo run
 
 ## Potential Future work
 - CUDA Support
-	- C bellman port
-	- rustc LLVM NVPTX upgrades and support
+	- C version of bellman or rustc LLVM NVPTX upgrades and support
