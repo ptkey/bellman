@@ -269,6 +269,8 @@ fn best_fft<E: Engine, T: Group<E>>(a: &mut [T], worker: &Worker, omega: &E::Fr,
     //}
 }
 
+use pairing::bls12_381::{Bls12};
+use std::{mem};
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     fn bitreverse(mut n: u32, l: u32) -> u32 {
@@ -284,7 +286,15 @@ fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
     print!("\t - Calculating FFT of {} elements...", n);
     assert_eq!(n, 1 << log_n);
 
+
     for k in 0..n {
+
+        //////////// kth element
+        //let mut elref: &Scalar<Bls12> = unsafe { mem::transmute(&a[k as usize]) };
+        //let mut el = (*elref).0;
+        //println!("{}", el);
+        ////////////
+
         let rk = bitreverse(k, log_n);
         if k < rk {
             a.swap(rk as usize, k as usize);
