@@ -283,7 +283,7 @@ fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
     }
 
     let n = a.len() as u32;
-    print!("\t - Calculating FFT of {} elements...", n);
+    println!("\t - Calculating FFT of {} elements...", n);
     assert_eq!(n, 1 << log_n);
 
 
@@ -323,7 +323,7 @@ fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 
         m *= 2;
     }
-    println!(" done!");
+    println!("\t - Done!");
 }
 
 fn parallel_fft<E: Engine, T: Group<E>>(
