@@ -4,11 +4,7 @@ use self::ocl::ProQue;
 
 // Currently it just doubles the input elements
 pub fn fft(a: &mut [i32]) -> ocl::Result<()> {
-    let src = r#"
-        __kernel void add(__global int* buffer) {
-            buffer[get_global_id(0)] *= 2;
-        }
-    "#;
+    let src = include_str!("fft.cl");
 
     let pro_que = ProQue::builder()
         .src(src)
@@ -22,7 +18,7 @@ pub fn fft(a: &mut [i32]) -> ocl::Result<()> {
 
     buffer.write(&vec).enq()?;
 
-    let kernel = pro_que.kernel_builder("add")
+    let kernel = pro_que.kernel_builder("fft")
         .arg(&buffer)
         .build()?;
 

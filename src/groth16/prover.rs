@@ -1,4 +1,6 @@
 use rand::Rng;
+use std::time::{Duration, Instant};
+use std::thread::sleep;
 
 use std::sync::Arc;
 
@@ -223,6 +225,8 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
     prover.alloc_input(|| "", || Ok(E::Fr::one()))?;
 
     println!("Initialize circuit...");
+    let init_cir_timer = Instant::now();
+
     circuit.synthesize(&mut prover)?;
 
     for i in 0..prover.input_assignment.len() {
@@ -233,6 +237,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         );
     }
     println!("Done!");
+    println!("Circuit Init took {} seconds", init_cir_timer.elapsed().as_secs());
 
     let worker = Worker::new();
 
@@ -243,6 +248,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
         let mut c = EvaluationDomain::from_coeffs(prover.c)?;
         println!("Run ifft and coset_fft for A, B, and C {{");
+        let ifft_timer = Instant::now();
         a.ifft(&worker);
         a.coset_fft(&worker);
         b.ifft(&worker);
@@ -250,18 +256,24 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         c.ifft(&worker);
         c.coset_fft(&worker);
         println!("}} Done!");
+        println!("ifft took {} seconds", ifft_timer.elapsed().as_secs());
 
         println!("Calculating A * B - C...");
+        let a_times_b_timer = Instant::now();
         a.mul_assign(&worker, &b);
         drop(b);
         a.sub_assign(&worker, &c);
         drop(c);
         println!("Done!");
+        println!("Took {} seconds", a_times_b_timer.elapsed().as_secs());
 
         println!("Divide result by Z(t)... {{");
+        let divide_timer = Instant::now();
         a.divide_by_z_on_coset(&worker);
         a.icoset_fft(&worker);
         println!("}} Done!");
+        println!("Divide took {} seconds", divide_timer.elapsed().as_secs());
+
 
         let mut a = a.into_coeffs();
         let a_len = a.len() - 1;
@@ -320,37 +332,59 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         g_c.add_assign(&vk.beta_g1.mul(r));
     }
     println!("Waiting for a_inputs (multiexp)...");
+    let now1 = Instant::now();
     let mut a_answer = a_inputs.wait()?;
     println!("Done!");
+    println!("Took {} seconds", now1.elapsed().as_secs());
+
     println!("Waiting for a_aux (multiexp)...");
+    let now2 = Instant::now();
     a_answer.add_assign(&a_aux.wait()?);
     println!("Done!");
+    println!("Took {} seconds", now2.elapsed().as_secs());
+
     g_a.add_assign(&a_answer);
     a_answer.mul_assign(s);
     g_c.add_assign(&a_answer);
 
     println!("Waiting for b_g1_inputs (multiexp)...");
+    let now3 = Instant::now();
     let mut b1_answer = b_g1_inputs.wait()?;
     println!("Done!");
+    println!("Took {} seconds", now3.elapsed().as_secs());
+
     println!("Waiting for b_g1_aux (multiexp)...");
+    let now4 = Instant::now();
     b1_answer.add_assign(&b_g1_aux.wait()?);
     println!("Done!");
+    println!("Took {} seconds", now4.elapsed().as_secs());
+
     println!("Waiting for b_g2_inputs (multiexp)...");
+    let now5 = Instant::now();
     let mut b2_answer = b_g2_inputs.wait()?;
     println!("Done!");
+    println!("Took {} seconds", now5.elapsed().as_secs());
+
     println!("Waiting for b_g2_aux (multiexp)...");
+    let now6 = Instant::now();    
     b2_answer.add_assign(&b_g2_aux.wait()?);
     println!("Done!");
+    println!("Took {} seconds", now6.elapsed().as_secs());
 
     g_b.add_assign(&b2_answer);
     b1_answer.mul_assign(r);
     g_c.add_assign(&b1_answer);
     println!("Waiting for h (multiexp)...");
+    let now7 = Instant::now();
     g_c.add_assign(&h.wait()?);
     println!("Done!");
+    println!("Took {} seconds", now7.elapsed().as_secs());
+
     println!("Waiting for l (multiexp)...");
+    let now8 = Instant::now();
     g_c.add_assign(&l.wait()?);
     println!("Done!");
+    println!("Took {} seconds", now8.elapsed().as_secs());
 
     Ok(Proof {
         a: g_a.into_affine(),
