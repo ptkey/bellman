@@ -11,8 +11,14 @@ use std::fs::File;
 use std::io::prelude::*;
 
 mod dummy;
+mod gpu;
 
 fn main(){
+
+    println!("Running a sample OpenCL program...");
+    gpu::trivial();
+    println!("=================================================");
+
     use pairing::bls12_381::{Bls12, Fr};
     use rand::thread_rng;
     use bellman::groth16::{
