@@ -12,11 +12,17 @@ use std::io::prelude::*;
 
 mod dummy;
 mod gpu;
+use gpu::{fft};
 
 fn main(){
 
     println!("Running a sample OpenCL program...");
-    gpu::trivial();
+    let mut arr : [i32; 8] = [1,2,3,4,5,6,7,8];
+    for v in arr.iter() { print!("{} ", v); }
+    println!();
+    gpu::fft(&mut arr).expect("Cannot calculate fft");
+    for v in arr.iter() { print!("{} ", v); }
+    println!();
     println!("=================================================");
 
     use pairing::bls12_381::{Bls12, Fr};
