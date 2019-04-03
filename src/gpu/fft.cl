@@ -123,14 +123,14 @@ uint256 addmod(uint256 a, uint256 b) {
 }
 
 uint256 powmod(uint256 b, uint64 p) {
-  if (p == 0)
-    return ONE;
-  uint256 t = powmod(b, p / 2);
-  t = mulmod(t, t);
-  if (p % 2 == 0)
-    return t;
-  else
-    return mulmod(b, t);
+  uint256 res = ONE;
+  while(p > 0) {
+    if (p & 1)
+      res = mulmod(res, b);
+    p = p >> 1;
+    b = mulmod(b, b);
+  }
+  return res;
 }
 
 // FFT
@@ -180,5 +180,7 @@ void FFT(uint256 *elems, uint32 n, uint32 lg, uint256 omega) {
 }
 
 __kernel void fft(__global int* buffer) {
-  buffer[get_global_id(0)] *= 5;
+  int index = get_global_id(0);
+  uint256 res = powmod(create(1234), 567891011);
+  buffer[index] = res.val[index % 8];
 }
