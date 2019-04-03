@@ -179,8 +179,7 @@ void FFT(uint256 *elems, uint32 n, uint32 lg, uint256 omega) {
   }
 }
 
-__kernel void fft(__global unsigned int* buffer) {
+__kernel void fft(__global uint256* buffer) {
   int index = get_global_id(0);
-  uint256 res = powmod(create(1234), 567891011);
-  buffer[index] = res.val[index % 8];
+  buffer[index / 8].val[0] = 12345;
 }

@@ -20,7 +20,7 @@ use gpu::{fft};
 fn main(){
 
     println!("Running a sample OpenCL program...");
-    let mut arr : [u32; 8] = [1,2,3,4,5,6,7,8];
+    let mut arr : [u32; 16] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
     for v in arr.iter() { print!("{} ", v); }
     println!();
     gpu::fft(&mut arr).expect("Cannot calculate fft");
