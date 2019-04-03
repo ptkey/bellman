@@ -10,6 +10,10 @@
 //! This allows us to perform polynomial operations in O(n)
 //! by performing an O(n log n) FFT over such a domain.
 
+// Timing deps
+use std::time::{Duration, Instant};
+use std::thread::sleep;
+
 use pairing::{
     Engine,
     Field,
@@ -273,6 +277,8 @@ use pairing::bls12_381::{Bls12};
 use std::{mem};
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 {
+    let now = Instant::now();
+
     fn bitreverse(mut n: u32, l: u32) -> u32 {
         let mut r = 0;
         for _ in 0..l {
@@ -324,6 +330,7 @@ fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
         m *= 2;
     }
     println!("\t - Done!");
+    println!("FFT round took {} seconds", now.elapsed().as_secs());
 }
 
 fn parallel_fft<E: Engine, T: Group<E>>(

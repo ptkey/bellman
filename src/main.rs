@@ -10,6 +10,9 @@ use pairing::{Engine, Field, PrimeField};
 use std::fs::File;
 use std::io::prelude::*;
 
+use std::time::{Duration, Instant};
+use std::thread::sleep;
+
 mod dummy;
 mod gpu;
 use gpu::{fft};
@@ -60,6 +63,7 @@ fn main(){
     let pvk = prepare_verifying_key(&params.vk);
 
     println!("Creating proofs...");
+    let now = Instant::now();
 
     // Create an instance of circuit
     let c = dummy::DummyDemo::<Bls12> {
@@ -68,6 +72,7 @@ fn main(){
 
     // Create a groth16 proof with our parameters.
     let proof = create_random_proof(c, &params, rng).unwrap();
+    println!("Total proof gen finished in {} seconds", now.elapsed().as_secs());
 
     println!("{}", verify_proof(
         &pvk,
