@@ -3,7 +3,7 @@ extern crate ocl;
 use self::ocl::ProQue;
 
 // Currently it just doubles the input elements
-pub fn fft(a: &mut [i32]) -> ocl::Result<()> {
+pub fn fft(a: &mut [u32]) -> ocl::Result<()> {
     let src = include_str!("fft.cl");
 
     let pro_que = ProQue::builder()
@@ -11,9 +11,9 @@ pub fn fft(a: &mut [i32]) -> ocl::Result<()> {
         .dims(a.len())
         .build()?;
 
-    let buffer = pro_que.create_buffer::<i32>()?;
+    let buffer = pro_que.create_buffer::<u32>()?;
 
-    let mut vec = vec![0i32; buffer.len()];
+    let mut vec = vec![0u32; buffer.len()];
     for i in 0..a.len() { vec[i] = a[i]; }
 
     buffer.write(&vec).enq()?;
