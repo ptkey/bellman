@@ -273,8 +273,34 @@ fn best_fft<E: Engine, T: Group<E>>(a: &mut [T], worker: &Worker, omega: &E::Fr,
     //}
 }
 
-use pairing::bls12_381::{Bls12};
+use pairing::bls12_381::{Bls12, Fr, FrRepr};
 use std::{mem};
+// WARNING: This code only works with Bls12 prime field.
+fn bls12_gpu_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
+{
+    let n = a.len() as u32;
+    println!("\t - Filling OpenCL buffer");
+    let mut inp = vec![0u32; (8*n) as usize];
+    for k in 0..n {
+        let mut elref: &Scalar<Bls12> = unsafe { mem::transmute(&a[k as usize]) };
+        let mut el : Fr = (*elref).0;
+        let mut elr : [u64; 4] = el.into_repr().0;
+        for i in 0..4 {
+            inp[(k*8+i*2) as usize] = (elr[i as usize] & 0xffffffff) as u32;
+            inp[(k*8+i*2+1) as usize] = ((elr[i as usize] >> 32) & 0xffffffff) as u32;
+        }
+    }
+    for k in 0..n {
+        let mut elr : [u64; 4] = [0,0,0,0];
+        for i in 0..4 {
+            elr[i as usize] = (inp[(k*8+i*2) as usize] as u64) + ((inp[(k*8+i*2+1) as usize] as u64) << 32);
+
+        }
+        let mut frep = Fr::from_repr(FrRepr(elr)).expect("Error!");
+    }
+    println!("\t - Buffer filled!");
+}
+
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     let now = Instant::now();
@@ -289,18 +315,10 @@ fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
     }
 
     let n = a.len() as u32;
-    println!("\t - Calculating FFT of {} elements...", n);
+    println!("\t - Calculating FFT(CPU version) of {} elements...", n);
     assert_eq!(n, 1 << log_n);
 
-
     for k in 0..n {
-
-        //////////// kth element
-        //let mut elref: &Scalar<Bls12> = unsafe { mem::transmute(&a[k as usize]) };
-        //let mut el = (*elref).0;
-        //println!("{}", el);
-        ////////////
-
         let rk = bitreverse(k, log_n);
         if k < rk {
             a.swap(rk as usize, k as usize);
