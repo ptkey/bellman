@@ -273,32 +273,20 @@ fn best_fft<E: Engine, T: Group<E>>(a: &mut [T], worker: &Worker, omega: &E::Fr,
     //}
 }
 
-use pairing::bls12_381::{Bls12, Fr, FrRepr};
+use pairing::bls12_381::{Bls12, Fr};
 use std::{mem};
-// WARNING: This code only works with Bls12 prime field.
+use gpu;
+
 fn bls12_gpu_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 {
-    let n = a.len() as u32;
-    println!("\t - Filling OpenCL buffer");
-    let mut inp = vec![0u32; (8*n) as usize];
-    for k in 0..n {
-        let mut elref: &Scalar<Bls12> = unsafe { mem::transmute(&a[k as usize]) };
-        let mut el : Fr = (*elref).0;
-        let mut elr : [u64; 4] = el.into_repr().0;
-        for i in 0..4 {
-            inp[(k*8+i*2) as usize] = (elr[i as usize] & 0xffffffff) as u32;
-            inp[(k*8+i*2+1) as usize] = ((elr[i as usize] >> 32) & 0xffffffff) as u32;
-        }
-    }
-    for k in 0..n {
-        let mut elr : [u64; 4] = [0,0,0,0];
-        for i in 0..4 {
-            elr[i as usize] = (inp[(k*8+i*2) as usize] as u64) + ((inp[(k*8+i*2+1) as usize] as u64) << 32);
-
-        }
-        let mut frep = Fr::from_repr(FrRepr(elr)).expect("Error!");
-    }
-    println!("\t - Buffer filled!");
+    let now = Instant::now();
+    println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
+    // Inputs are all in montgomery form
+    let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
+    let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
+    gpu::fft(ta, tomega, log_n).expect("GPU FFT failed!");
+    println!("\t - Done!");
+    println!("FFT round took {} seconds", now.elapsed().as_secs());
 }
 
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)

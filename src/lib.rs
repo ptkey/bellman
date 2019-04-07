@@ -9,6 +9,7 @@ extern crate byteorder;
 
 pub mod multicore;
 mod multiexp;
+mod gpu;
 pub mod domain;
 pub mod groth16;
 

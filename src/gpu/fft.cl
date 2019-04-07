@@ -1,5 +1,5 @@
-typedef unsigned int uint32;
-typedef unsigned long long uint64;
+typedef uint uint32;
+typedef ulong uint64;
 
 typedef struct {
   uint32 val[8];
@@ -13,6 +13,9 @@ __constant uint256 ONE = {0x00000001,0x00000000,0x00000000,0x00000000,
 
 __constant uint256 GEN = {0x00000007,0x00000000,0x00000000,0x00000000,
                           0x00000000,0x00000000,0x00000000,0x00000000};
+
+__constant uint256 R = {0xfffffffe,0x00000001,0x00034802,0x5884b7fa,
+                        0xecbc4ff5,0x998c4fef,0xacc5056f,0x1824b159};
 
 __constant uint256 R2 = {0xf3f29c6d,0xc999e990,0x87925c23,0x2b6cedcb,
                          0x7254398f,0x05d31496,0x9f59ff11,0x0748d9d9};
@@ -105,7 +108,7 @@ uint256 mul_reduce(uint256 a, uint256 b) {
 }
 
 uint256 mulmod(uint256 a, uint256 b) {
-  return mul_reduce(mul_reduce(a, b), R2);
+  return mul_reduce(a, b);
 }
 
 uint256 negmod(uint256 a) {
@@ -123,7 +126,7 @@ uint256 addmod(uint256 a, uint256 b) {
 }
 
 uint256 powmod(uint256 b, uint64 p) {
-  uint256 res = ONE;
+  uint256 res = R;
   while(p > 0) {
     if (p & 1)
       res = mulmod(res, b);
@@ -144,18 +147,14 @@ uint32 bitreverse(uint32 n, uint32 bits) {
   return r;
 }
 
-void swap(uint256 *a, uint256 *b) {
-  uint256 tmp = *a;
-  *a = *b;
-  *b = tmp;
-}
-
-void FFT(uint256 *elems, uint32 n, uint32 lg, uint256 omega) {
-
+void FFT(uint256 elems[16], uint32 n, uint32 lg, uint256 omega) {
   for(uint32 k = 0; k < n; k++) {
     uint32 rk = bitreverse(k, lg);
-    if(k < rk)
-      swap(&elems[k], &elems[rk]);
+    if(k < rk) {
+      uint256 tmp = elems[k];
+      elems[k] = elems[rk];
+      elems[rk] = tmp;
+    }
   }
 
   uint32 m = 1;
@@ -163,7 +162,7 @@ void FFT(uint256 *elems, uint32 n, uint32 lg, uint256 omega) {
     uint256 w_m = powmod(omega, n / (2*m));
     uint32 k = 0;
     while(k < n) {
-      uint256 w = ONE;
+      uint256 w = R;
       for(int j = 0; j < m; j++) {
         uint256 t = elems[k+j+m];
         t = mulmod(t, w);
@@ -179,7 +178,16 @@ void FFT(uint256 *elems, uint32 n, uint32 lg, uint256 omega) {
   }
 }
 
-__kernel void fft(__global uint256* buffer) {
+__kernel void fft(__global ulong4* buffer,
+                  uint n,
+                  uint lgn,
+                  ulong4 omega) {
   int index = get_global_id(0);
-  buffer[index / 8].val[0] = 12345;
+
+  if(index == 0) {
+    uint256 om = {omega.s0 & 0xffffffff, omega.s0 >> 32, omega.s1 & 0xffffffff, omega.s1 >> 32,
+                  omega.s2 & 0xffffffff, omega.s2 >> 32, omega.s3 & 0xffffffff, omega.s3 >> 32};
+    uint256 *elems = buffer;
+    FFT(elems, n, lgn, om);
+  }
 }
