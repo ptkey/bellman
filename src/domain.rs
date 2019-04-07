@@ -28,6 +28,7 @@ use super::{
 use super::multicore::Worker;
 
 use gpu;
+const GPU_FFT : bool = false;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -268,10 +269,16 @@ impl<E: Engine> Group<E> for Scalar<E> {
 
 fn best_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
+    if(GPU_FFT) {
+        bls12_gpu_fft(kern, a, omega, log_n);
+    } else {
+        serial_fft(a, omega, log_n);
+    }
+
     //let log_cpus = worker.log_num_cpus();
 
     //if log_n <= log_cpus {
-        serial_fft(kern, a, omega, log_n);
+    //    serial_fft(a, omega, log_n);
     //} else {
     //    parallel_fft(a, worker, omega, log_n, log_cpus);
     //}
