@@ -185,8 +185,7 @@ __kernel void fft(__global ulong4* buffer,
   int index = get_global_id(0);
 
   if(index == 0) {
-    uint256 om = {omega.s0 & 0xffffffff, omega.s0 >> 32, omega.s1 & 0xffffffff, omega.s1 >> 32,
-                  omega.s2 & 0xffffffff, omega.s2 >> 32, omega.s3 & 0xffffffff, omega.s3 >> 32};
+    uint256 om = *((uint256*)&omega);
     uint256 *elems = buffer;
     FFT(elems, n, lgn, om);
   }
