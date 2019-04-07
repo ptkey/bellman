@@ -27,13 +27,16 @@ use super::{
 
 use super::multicore::Worker;
 
+use gpu;
+
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
     exp: u32,
     omega: E::Fr,
     omegainv: E::Fr,
     geninv: E::Fr,
-    minv: E::Fr
+    minv: E::Fr,
+    kern: gpu::Kernel
 }
 
 impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
@@ -80,18 +83,19 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             omega: omega,
             omegainv: omega.inverse().unwrap(),
             geninv: E::Fr::multiplicative_generator().inverse().unwrap(),
-            minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap()
+            minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap(),
+            kern: gpu::create_kernel(m as u32)
         })
     }
 
     pub fn fft(&mut self, worker: &Worker)
     {
-        best_fft(&mut self.coeffs, worker, &self.omega, self.exp);
+        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omega, self.exp);
     }
 
     pub fn ifft(&mut self, worker: &Worker)
     {
-        best_fft(&mut self.coeffs, worker, &self.omegainv, self.exp);
+        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omegainv, self.exp);
 
         worker.scope(self.coeffs.len(), |scope, chunk| {
             let minv = self.minv;
@@ -262,12 +266,12 @@ impl<E: Engine> Group<E> for Scalar<E> {
     }
 }
 
-fn best_fft<E: Engine, T: Group<E>>(a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
+fn best_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
     //let log_cpus = worker.log_num_cpus();
 
     //if log_n <= log_cpus {
-        serial_fft(a, omega, log_n);
+        serial_fft(kern, a, omega, log_n);
     //} else {
     //    parallel_fft(a, worker, omega, log_n, log_cpus);
     //}
@@ -275,16 +279,15 @@ fn best_fft<E: Engine, T: Group<E>>(a: &mut [T], worker: &Worker, omega: &E::Fr,
 
 use pairing::bls12_381::{Bls12, Fr};
 use std::{mem};
-use gpu;
 
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
+fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     let now = Instant::now();
     println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    gpu::fft(ta, tomega, log_n).expect("GPU FFT failed!");
+    kern.fft(ta, tomega, log_n).expect("GPU FFT failed!");
     println!("\t - Done!");
     println!("FFT round took {} seconds", now.elapsed().as_secs());
 }

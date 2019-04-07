@@ -14,8 +14,6 @@ use std::time::{Duration, Instant};
 use std::thread::sleep;
 
 mod dummy;
-mod gpu;
-use gpu::{fft};
 
 fn main(){
 
