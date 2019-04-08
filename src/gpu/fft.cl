@@ -19,10 +19,6 @@ __constant uint32 P0INV = 4294967295;
 
 __constant uint32 S = 32;
 
-// 2^32th root of unity
-__constant uint256 ROOT = {0x439f0d2b,0x3829971f,0x8c2280b9,0xb6368350,
-                           0x22c813b4,0xd09b6819,0xdfe81f20,0x16a2a19e};
-
 uint256 create(uint32 v) {
   uint256 ret = {v,0,0,0,0,0,0,0};
   return ret;
