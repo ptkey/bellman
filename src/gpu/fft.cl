@@ -128,55 +128,32 @@ uint256 powmod(uint256 b, uint64 p) {
 
 // FFT
 
-uint32 bitreverse(uint32 n, uint32 bits) {
-  uint32 r = 0;
-  for(int i = 0; i < bits; i++) {
-    r = (r << 1) | (n & 1);
-    n >>= 1;
-  }
-  return r;
-}
-
-void FFT(uint256 *elems, uint32 n, uint32 lg, uint256 omega) {
-  for(uint32 k = 0; k < n; k++) {
-    uint32 rk = bitreverse(k, lg);
-    if(k < rk) {
-      uint256 tmp = elems[k];
-      elems[k] = elems[rk];
-      elems[rk] = tmp;
-    }
-  }
-
-  uint32 m = 1;
-  for(int i = 0; i < lg; i++) {
-    uint256 w_m = powmod(omega, n / (2*m));
-    uint32 k = 0;
-    while(k < n) {
-      uint256 w = R;
-      for(int j = 0; j < m; j++) {
-        uint256 t = elems[k+j+m];
-        t = mulmod(t, w);
-        uint256 tmp = elems[k+j];
-        tmp = submod(tmp, t);
-        elems[k+j+m] = tmp;
-        elems[k+j] = addmod(elems[k+j], t);
-        w = mulmod(w, w_m);
-      }
-      k += 2*m;
-    }
-    m *= 2;
-  }
-}
-
-__kernel void fft(__global ulong4* buffer,
+__kernel void fftstep(__global ulong4* buffer,
                   uint n,
                   uint lgn,
-                  ulong4 omega) {
+                  ulong4 om,
+                  uint lgm) {
+
   int index = get_global_id(0);
 
-  if(index == 0) {
-    uint256 om = *((uint256*)&omega);
-    uint256 *elems = buffer;
-    FFT(elems, n, lgn, om);
+  uint256 *elems = buffer;
+  uint256 omega = *(uint256*)&om;
+
+  uint works = n >> (lgm + 1);
+  uint m = 1 << lgm;
+
+  if(index < works) {
+    uint256 w_m = powmod(omega, n / (2*m));
+    uint32 k = index * 2 * m;
+    uint256 w = R;
+    for(int j = 0; j < m; j++) {
+      uint256 t = elems[k+j+m];
+      t = mulmod(t, w);
+      uint256 tmp = elems[k+j];
+      tmp = submod(tmp, t);
+      elems[k+j+m] = tmp;
+      elems[k+j] = addmod(elems[k+j], t);
+      w = mulmod(w, w_m);
+    }
   }
 }

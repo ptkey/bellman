@@ -19,7 +19,24 @@ pub fn create_kernel(n: u32) -> Kernel {
 
 impl Kernel {
     pub fn fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
+        fn bitreverse(mut n: u32, l: u32) -> u32 {
+            let mut r = 0;
+            for _ in 0..l {
+                r = (r << 1) | (n & 1);
+                n >>= 1;
+            }
+            r
+        }
+
+
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
+        for k in 0..(a.len() as u32) {
+            let rk = bitreverse(k, lgn);
+            if k < rk {
+                ta.swap(rk as usize, k as usize);
+            }
+        }
+
         let tomega = *(unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) });
 
         let mut vec = vec![Ulong4::zero(); self.fft_buffer.len()];
@@ -27,14 +44,18 @@ impl Kernel {
 
         self.fft_buffer.write(&vec).enq()?;
 
-        let kernel = self.proque.kernel_builder("fft")
-            .arg(&self.fft_buffer)
-            .arg(ta.len() as u32)
-            .arg(lgn as u32)
-            .arg(tomega)
-            .build()?;
+        for lgm in 0..lgn {
 
-        unsafe { kernel.enq()?; }
+            let kernel = self.proque.kernel_builder("fftstep")
+                .arg(&self.fft_buffer)
+                .arg(ta.len() as u32)
+                .arg(lgn as u32)
+                .arg(tomega)
+                .arg(lgm)
+                .build()?;
+
+            unsafe { kernel.enq()?; }
+        }
 
         self.fft_buffer.read(&mut vec).enq()?;
 
