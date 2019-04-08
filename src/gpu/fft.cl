@@ -128,7 +128,7 @@ uint256 powmod(uint256 b, uint64 p) {
 
 // FFT
 
-__kernel void fftstep(__global ulong4* src,
+__kernel void radix2_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
                   uint lgn,
@@ -159,5 +159,35 @@ __kernel void fftstep(__global ulong4* src,
     uint j = (i<<1) - k;
     y[j] = u0;
     y[j+p] = u1;
+  }
+}
+
+__kernel void regular_fft(__global ulong4* buffer,
+                  uint n,
+                  uint lgn,
+                  ulong4 om,
+                  uint lgm) {
+
+  int index = get_global_id(0);
+
+  uint256 *elems = buffer;
+  uint256 omega = *(uint256*)&om;
+
+  uint works = n >> (lgm + 1);
+  uint m = 1 << lgm;
+
+  if(index < works) {
+    uint256 w_m = powmod(omega, n / (2*m));
+    uint32 k = index * 2 * m;
+    uint256 w = R;
+    for(int j = 0; j < m; j++) {
+      uint256 t = elems[k+j+m];
+      t = mulmod(t, w);
+      uint256 tmp = elems[k+j];
+      tmp = submod(tmp, t);
+      elems[k+j+m] = tmp;
+      elems[k+j] = addmod(elems[k+j], t);
+      w = mulmod(w, w_m);
+    }
   }
 }
