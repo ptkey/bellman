@@ -1,6 +1,5 @@
 use rand::Rng;
-use std::time::{Duration, Instant};
-use std::thread::sleep;
+use std::time::Instant;
 
 use std::sync::Arc;
 
@@ -366,7 +365,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
     println!("Took {} seconds", now5.elapsed().as_secs());
 
     println!("Waiting for b_g2_aux (multiexp)...");
-    let now6 = Instant::now();    
+    let now6 = Instant::now();
     b2_answer.add_assign(&b_g2_aux.wait()?);
     println!("Done!");
     println!("Took {} seconds", now6.elapsed().as_secs());

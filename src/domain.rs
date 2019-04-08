@@ -11,8 +11,7 @@
 //! by performing an O(n log n) FFT over such a domain.
 
 // Timing deps
-use std::time::{Duration, Instant};
-use std::thread::sleep;
+use std::time::Instant;
 
 use pairing::{
     Engine,
@@ -269,40 +268,37 @@ impl<E: Engine> Group<E> for Scalar<E> {
 
 fn best_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
-    if(GPU_FFT) {
+    let now = Instant::now();
+
+    if GPU_FFT {
+        println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
         bls12_gpu_fft(kern, a, omega, log_n);
     } else {
-        serial_fft(a, omega, log_n);
+        println!("\t - Calculating FFT(CPU version) of {} elements...", a.len());
+        let log_cpus = worker.log_num_cpus();
+        if log_n <= log_cpus {
+            serial_fft(a, omega, log_n);
+        } else {
+            parallel_fft(a, worker, omega, log_n, log_cpus);
+        }
     }
 
-    //let log_cpus = worker.log_num_cpus();
-
-    //if log_n <= log_cpus {
-    //    serial_fft(a, omega, log_n);
-    //} else {
-    //    parallel_fft(a, worker, omega, log_n, log_cpus);
-    //}
-}
-
-use pairing::bls12_381::{Bls12, Fr};
-use std::{mem};
-
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
-{
-    let now = Instant::now();
-    println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
-    // Inputs are all in montgomery form
-    let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
-    let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    kern.fft(ta, tomega, log_n).expect("GPU FFT failed!");
     println!("\t - Done!");
     println!("FFT round took {} seconds", now.elapsed().as_secs());
 }
 
+use pairing::bls12_381::Fr;
+
+fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
+{
+    // Inputs are all in montgomery form
+    let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
+    let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
+    kern.fft(ta, tomega, log_n).expect("GPU FFT failed!");
+}
+
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 {
-    let now = Instant::now();
-
     fn bitreverse(mut n: u32, l: u32) -> u32 {
         let mut r = 0;
         for _ in 0..l {
@@ -313,7 +309,6 @@ fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
     }
 
     let n = a.len() as u32;
-    println!("\t - Calculating FFT(CPU version) of {} elements...", n);
     assert_eq!(n, 1 << log_n);
 
     for k in 0..n {
@@ -345,8 +340,6 @@ fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 
         m *= 2;
     }
-    println!("\t - Done!");
-    println!("FFT round took {} seconds", now.elapsed().as_secs());
 }
 
 fn parallel_fft<E: Engine, T: Group<E>>(
