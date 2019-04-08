@@ -283,8 +283,7 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], worker:
         }
     }
 
-    println!("\t - Done!");
-    println!("FFT round took {} seconds", now.elapsed().as_secs());
+    println!("\t - Done! FFT round took {} seconds", now.elapsed().as_secs());
 }
 
 use pairing::bls12_381::Fr;
