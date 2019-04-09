@@ -21,3 +21,10 @@ __kernel void fft_radix2(__ global float2* src, __ global float2* dst, const int
   dst[0] = in1 + temp;
   dst[p] = in1 - temp;
 }
+
+__kernel void ff_fft(__global uint256* buffer) {
+  int index = get_global_id(0);
+
+}
+
+

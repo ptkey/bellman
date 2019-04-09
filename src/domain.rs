@@ -27,7 +27,7 @@ use super::{
 use super::multicore::Worker;
 
 use gpu;
-const GPU_FFT : bool = true;
+const GPU_FFT : bool = false;
 const RADIX2_FFT : bool = false;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
@@ -37,7 +37,7 @@ pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     omegainv: E::Fr,
     geninv: E::Fr,
     minv: E::Fr,
-    kern: gpu::Kernel
+    size: u32
 }
 
 impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
@@ -85,18 +85,18 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             omegainv: omega.inverse().unwrap(),
             geninv: E::Fr::multiplicative_generator().inverse().unwrap(),
             minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap(),
-            kern: gpu::create_kernel(m as u32)
+            size: m as u32
         })
     }
 
     pub fn fft(&mut self, worker: &Worker)
     {
-        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omega, self.exp);
+        best_fft(self.size, &mut self.coeffs, worker, &self.omega, self.exp);
     }
 
     pub fn ifft(&mut self, worker: &Worker)
     {
-        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omegainv, self.exp);
+        best_fft(self.size, &mut self.coeffs, worker, &self.omegainv, self.exp);
 
         worker.scope(self.coeffs.len(), |scope, chunk| {
             let minv = self.minv;
@@ -267,13 +267,13 @@ impl<E: Engine> Group<E> for Scalar<E> {
     }
 }
 
-fn best_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
+fn best_fft<E: Engine, T: Group<E>>(m: u32, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
     let now = Instant::now();
 
     if GPU_FFT {
         println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
-        bls12_gpu_fft(kern, a, omega, log_n);
+        bls12_gpu_fft(m, a, omega, log_n);
     } else {
         println!("\t - Calculating FFT(CPU version) of {} elements...", a.len());
         let log_cpus = worker.log_num_cpus();
@@ -289,8 +289,9 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], worker:
 
 use pairing::bls12_381::Fr;
 
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
+fn bls12_gpu_fft<E: Engine, T: Group<E>>(m: u32, a: &mut [T], omega: &E::Fr, log_n: u32)
 {
+    let mut kern = gpu::create_kernel(m);
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
