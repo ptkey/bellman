@@ -5,9 +5,6 @@ typedef struct {
   uint32 val[8];
 } uint256;
 
-__constant uint256 P = ((uint256){0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
-                        0x09a1d805,0x3339d808,0x299d7d48,0x73eda753});
-
 __constant uint256 ONE = {0x00000001,0x00000000,0x00000000,0x00000000,
                           0x00000000,0x00000000,0x00000000,0x00000000};
 
@@ -24,9 +21,8 @@ uint256 create(uint32 v) {
   return ret;
 }
 
-void add_digit(uint32 res[16], uint32 index, uint32 num) {
+void add_digit(uint32 *res, uint32 index, uint32 num) {
   while(true) {
-    if(index >=8) return;
     uint32 old = res[index];
     res[index] += num;
     if(res[index] < old) {
@@ -36,9 +32,8 @@ void add_digit(uint32 res[16], uint32 index, uint32 num) {
   }
 }
 
-void sub_digit(uint32 res[16], uint32 index, uint32 num) {
+void sub_digit(uint32 *res, uint32 index, uint32 num) {
   while(true) {
-    if(index >=8) return;
     uint32 old = res[index];
     res[index] -= num;
     if(res[index] > old) {
@@ -72,6 +67,8 @@ uint256 sub(uint256 a, uint256 b) {
 }
 
 uint256 mul_reduce(uint256 a, uint256 b) {
+  uint256 P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
+                        0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
   uint32 res[16] = {0};
   for(int i = 0; i < 8; i++) {
     for(int j = 0; j < 8; j++) {
@@ -95,12 +92,8 @@ uint256 mul_reduce(uint256 a, uint256 b) {
   }
   uint256 result;
   for(int i = 0; i < 8; i++) result.val[i] = res[i+8];
-  for(int i = 0; i < 8; i++) {
-      sub_digit(result.val, i, P.val[i]);
-  }
-  if(gte(result, P)) {
-
-  }
+  if(gte(result, P))
+    result = sub(result, P);
   return result;
 }
 
@@ -108,27 +101,24 @@ uint256 mulmod(uint256 a, uint256 b) {
   return mul_reduce(a, b);
 }
 
-uint256 negmod(uint256 a, uint256 _P) {
-  return sub(_P, a);
+uint256 negmod(uint256 a) {
+  uint256 P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
+                        0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
+  return sub(P, a);
 }
 
 uint256 submod(uint256 a, uint256 b) {
+  uint256 P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
+                        0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
   uint256 res = sub(a, b);
 
-  for(int i = 0; i < 8; i++)
-    add_digit(res.val, i, P.val[i]);
+  if(!gte(a, b)) res = add(res, P);
 
   return res;
 }
 
-uint256 addmod(uint256 a, uint256 b, uint256 _P) {
-  uint256 _b = negmod(a, _P);
-  uint256 res = sub(a, _b);
-
-  for(int i = 0; i < 8; i++)
-    add_digit(res.val, i, P.val[i]);
-
-  return res;
+uint256 addmod(uint256 a, uint256 b) {
+  return submod(a, negmod(b));
 }
 
 uint256 powmod(uint256 b, uint64 p) {
@@ -159,9 +149,6 @@ __kernel void radix2_fft(__global ulong4* src,
   uint t = n / 2;
   uint256 dd = powmod(omega, n / p / 2);
 
-  uint256 _P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
-                        0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
-
   if(i < t) {
     uint k = i & (p - 1);
 
@@ -174,7 +161,7 @@ __kernel void radix2_fft(__global ulong4* src,
     u1 = mulmod(u1, twiddle);
 
     uint256 tmp = submod(u0, u1);
-    u0 = addmod(u0, u1, _P);
+    u0 = addmod(u0, u1);
     u1 = tmp;
 
     uint j = (i<<1) - k;
@@ -197,9 +184,6 @@ __kernel void regular_fft(__global ulong4* buffer,
   uint works = n >> (lgm + 1);
   uint m = 1 << lgm;
 
-  uint256 _P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
-                        0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
-
   if(index < works) {
     uint256 w_m = powmod(omega, n / (2*m));
     uint32 k = index * 2 * m;
@@ -210,7 +194,7 @@ __kernel void regular_fft(__global ulong4* buffer,
       uint256 tmp = elems[k+j];
       tmp = submod(tmp, t);
       elems[k+j+m] = tmp;
-      elems[k+j] = addmod(elems[k+j], t, _P);
+      elems[k+j] = addmod(elems[k+j], t);
       w = mulmod(w, w_m);
     }
   }
