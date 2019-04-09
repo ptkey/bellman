@@ -27,7 +27,7 @@ use super::{
 use super::multicore::Worker;
 
 use gpu;
-const GPU_FFT : bool = false;
+const GPU_FFT : bool = true;
 const RADIX2_FFT : bool = false;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
