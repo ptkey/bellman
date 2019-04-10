@@ -36,7 +36,8 @@ pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     omega: E::Fr,
     omegainv: E::Fr,
     geninv: E::Fr,
-    minv: E::Fr
+    minv: E::Fr,
+    kern: Option<gpu::Kernel>
 }
 
 impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
@@ -83,18 +84,19 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             omega: omega,
             omegainv: omega.inverse().unwrap(),
             geninv: E::Fr::multiplicative_generator().inverse().unwrap(),
-            minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap()
+            minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap(),
+            kern: if GPU_FFT { Some(gpu::create_kernel(m as u32)) } else { None }
         })
     }
 
     pub fn fft(&mut self, worker: &Worker)
     {
-        best_fft(&mut self.coeffs, worker, &self.omega, self.exp);
+        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omega, self.exp);
     }
 
     pub fn ifft(&mut self, worker: &Worker)
     {
-        best_fft(&mut self.coeffs, worker, &self.omegainv, self.exp);
+        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omegainv, self.exp);
 
         worker.scope(self.coeffs.len(), |scope, chunk| {
             let minv = self.minv;
@@ -265,14 +267,17 @@ impl<E: Engine> Group<E> for Scalar<E> {
     }
 }
 
-fn best_fft<E: Engine, T: Group<E>>(a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
+fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::Kernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
     let now = Instant::now();
 
     if GPU_FFT {
         println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
-        let m = 1 << log_n as u32; 
-        bls12_gpu_fft(m, a, omega, log_n);
+        if let Some(ref mut k) = kern {
+            bls12_gpu_fft(k, a, omega, log_n);
+        } else {
+            panic!("Kernel is not initialized!");
+        }
     } else {
         println!("\t - Calculating FFT(CPU version) of {} elements...", a.len());
         let log_cpus = worker.log_num_cpus();
@@ -288,9 +293,8 @@ fn best_fft<E: Engine, T: Group<E>>(a: &mut [T], worker: &Worker, omega: &E::Fr,
 
 use pairing::bls12_381::Fr;
 
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(m: u32, a: &mut [T], omega: &E::Fr, log_n: u32)
+fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
 {
-    let mut kern = gpu::create_kernel(m);
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
@@ -383,7 +387,7 @@ fn parallel_fft<E: Engine, T: Group<E>>(
                 let mut elt = E::Fr::one();
                 for i in 0..(1 << log_new_n) { // for each chunk of log_new_n chunks: n=1024, i=0...64
                     for s in 0..num_cpus { // for each compute unit
-                        // current index + chunk 
+                        // current index + chunk
                         // for n=1024
                         // i = 0
                         // 1: 0+(0^6) % 1024 = 0
