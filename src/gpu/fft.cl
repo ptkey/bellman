@@ -10,7 +10,7 @@ __kernel void radix2_fft(__global ulong4* src,
   uint256 omega = *(uint256*)&om;
 
   uint i = get_global_id(0);
-  uint t = n / 2;
+  uint t = n >> 1;
   uint m = 1 << lgm;
   uint256 dd = powmod(omega, n >> lgm >> 1);
 
