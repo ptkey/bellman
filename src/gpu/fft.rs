@@ -102,4 +102,9 @@ impl Kernel {
         for i in 0..a.len() { ta[i] = vec[i]; }
         Ok(())
     }
+
+    // pub fn newKern(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
+
+    //     Ok(())
+    // }
 }
