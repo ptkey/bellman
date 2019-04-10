@@ -87,7 +87,7 @@ impl Kernel {
                 .arg(ta.len() as u32)
                 .arg(lgn as u32)
                 .arg(tomega)
-                .arg(1u32 << lgm)
+                .arg(lgm)
                 .build()?;
 
             unsafe { kernel.enq()?; }

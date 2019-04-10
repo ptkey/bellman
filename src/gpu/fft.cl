@@ -3,7 +3,7 @@ __kernel void radix2_fft(__global ulong4* src,
                   uint n,
                   uint lgn,
                   ulong4 om,
-                  uint p) {
+                  uint lgm) {
 
   __global uint256 *x = src;
   __global uint256 *y = dst;
@@ -11,10 +11,11 @@ __kernel void radix2_fft(__global ulong4* src,
 
   uint i = get_global_id(0);
   uint t = n / 2;
-  uint256 dd = powmod(omega, n / p / 2);
+  uint m = 1 << lgm;
+  uint256 dd = powmod(omega, n >> lgm >> 1);
 
   if(i < t) {
-    uint k = i & (p - 1);
+    uint k = i & (m - 1);
 
     uint256 u0;
     u0 = x[i];
@@ -30,7 +31,7 @@ __kernel void radix2_fft(__global ulong4* src,
 
     uint j = (i<<1) - k;
     y[j] = u0;
-    y[j+p] = u1;
+    y[j+m] = u1;
   }
 }
 
@@ -49,7 +50,7 @@ __kernel void regular_fft(__global ulong4* buffer,
   uint m = 1 << lgm;
 
   if(index < works) {
-    uint256 w_m = powmod(omega, n / (2*m));
+    uint256 w_m = powmod(omega, n >> lgm >> 1);
     uint32 k = index * 2 * m;
     uint256 w = ONE;
     for(int j = 0; j < m; j++) {
