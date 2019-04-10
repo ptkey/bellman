@@ -12,7 +12,6 @@ __kernel void radix2_fft(__global ulong4* src,
   uint i = get_global_id(0);
   uint t = n >> 1;
   uint m = 1 << lgm;
-  uint256 dd = powmod(omega, n >> lgm >> 1);
 
   uint k = i & (m - 1);
 
@@ -21,7 +20,7 @@ __kernel void radix2_fft(__global ulong4* src,
   uint256 u1;
   u1 = x[i+t];
 
-  uint256 twiddle = powmod(dd, k);
+  uint256 twiddle = powmod(omega, (n >> lgm >> 1) * k);
   u1 = mulmod(u1, twiddle);
 
   uint256 tmp = submod(u0, u1);
