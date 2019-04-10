@@ -4,6 +4,7 @@ use self::ocl::{ProQue, Buffer};
 use self::ocl::prm::Ulong4;
 use pairing::bls12_381::Fr;
 
+static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
 
 pub struct Kernel {
@@ -13,7 +14,8 @@ pub struct Kernel {
 }
 
 pub fn create_kernel(n: u32) -> Kernel {
-    let pq = ProQue::builder().src(KERNEL_SRC).dims(n).build().expect("Cannot create kernel!");
+    let src = format!("{}\n{}", UINT256_SRC, KERNEL_SRC);
+    let pq = ProQue::builder().src(src).dims(n).build().expect("Cannot create kernel!");
     let src = pq.create_buffer::<Ulong4>().expect("Cannot allocate buffer!");
     let dst = pq.create_buffer::<Ulong4>().expect("Cannot allocate buffer!");
     Kernel { proque: pq, fft_src_buffer: src, fft_dst_buffer: dst }
