@@ -14,25 +14,23 @@ __kernel void radix2_fft(__global ulong4* src,
   uint m = 1 << lgm;
   uint256 dd = powmod(omega, n >> lgm >> 1);
 
-  if(i < t) {
-    uint k = i & (m - 1);
+  uint k = i & (m - 1);
 
-    uint256 u0;
-    u0 = x[i];
-    uint256 u1;
-    u1 = x[i+t];
+  uint256 u0;
+  u0 = x[i];
+  uint256 u1;
+  u1 = x[i+t];
 
-    uint256 twiddle = powmod(dd, k);
-    u1 = mulmod(u1, twiddle);
+  uint256 twiddle = powmod(dd, k);
+  u1 = mulmod(u1, twiddle);
 
-    uint256 tmp = submod(u0, u1);
-    u0 = addmod(u0, u1);
-    u1 = tmp;
+  uint256 tmp = submod(u0, u1);
+  u0 = addmod(u0, u1);
+  u1 = tmp;
 
-    uint j = (i<<1) - k;
-    y[j] = u0;
-    y[j+m] = u1;
-  }
+  uint j = (i<<1) - k;
+  y[j] = u0;
+  y[j+m] = u1;
 }
 
 __kernel void regular_fft(__global ulong4* buffer,
@@ -49,18 +47,17 @@ __kernel void regular_fft(__global ulong4* buffer,
   uint works = n >> (lgm + 1);
   uint m = 1 << lgm;
 
-  if(index < works) {
-    uint256 w_m = powmod(omega, n >> lgm >> 1);
-    uint32 k = index * 2 * m;
-    uint256 w = ONE;
-    for(int j = 0; j < m; j++) {
-      uint256 t = elems[k+j+m];
-      t = mulmod(t, w);
-      uint256 tmp = elems[k+j];
-      tmp = submod(tmp, t);
-      elems[k+j+m] = tmp;
-      elems[k+j] = addmod(elems[k+j], t);
-      w = mulmod(w, w_m);
-    }
+  uint256 w_m = powmod(omega, n >> lgm >> 1);
+  uint32 k = index * 2 * m;
+  uint256 w = ONE;
+  for(int j = 0; j < m; j++) {
+    uint256 t = elems[k+j+m];
+    t = mulmod(t, w);
+    uint256 tmp = elems[k+j];
+    tmp = submod(tmp, t);
+    elems[k+j+m] = tmp;
+    elems[k+j] = addmod(elems[k+j], t);
+    w = mulmod(w, w_m);
   }
+
 }

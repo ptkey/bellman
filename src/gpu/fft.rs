@@ -47,10 +47,12 @@ impl Kernel {
         for i in 0..self.fft_src_buffer.len() { vec[i] = ta[i]; }
 
         self.fft_src_buffer.write(&vec).enq()?;
+        let n = 1 << lgn;
 
         for lgm in 0..lgn {
 
             let kernel = self.proque.kernel_builder("regular_fft")
+                .global_work_size([n >> (lgm + 1)])
                 .arg(&self.fft_src_buffer)
                 .arg(ta.len() as u32)
                 .arg(lgn as u32)
@@ -78,10 +80,12 @@ impl Kernel {
         self.fft_src_buffer.write(&vec).enq()?;
 
         let mut in_src = true;
+        let n = 1 << lgn;
 
         for lgm in 0..lgn {
 
             let kernel = self.proque.kernel_builder("radix2_fft")
+                .global_work_size([n >> 1])
                 .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
                 .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
                 .arg(ta.len() as u32)
