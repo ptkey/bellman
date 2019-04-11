@@ -108,7 +108,7 @@ uint256 addmod(uint256 a, uint256 b) {
   return submod(a, negmod(b));
 }
 
-uint256 powmod(uint256 b, uint64 p) {
+uint256 powmod(uint256 b, uint32 p) {
   uint256 res = ONE;
   while(p > 0) {
     if (p & 1)
