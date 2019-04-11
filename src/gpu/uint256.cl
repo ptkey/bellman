@@ -19,17 +19,6 @@ void add_digit(uint32 *res, uint32 index, uint32 num) {
   }
 }
 
-void sub_digit(uint32 *res, uint32 index, uint32 num) {
-  while(true) {
-    uint32 old = res[index];
-    res[index] -= num;
-    if(res[index] > old) {
-      num = 1;
-      index++;
-    } else break;
-  }
-}
-
 bool gte(uint256 a, uint256 b) {
   for(int i = 7; i >= 0; i--){
     if(a.val[i] > b.val[i])
@@ -41,14 +30,21 @@ bool gte(uint256 a, uint256 b) {
 }
 
 uint256 add(uint256 a, uint256 b) {
-  for(int i = 0; i < 8; i++)
-    add_digit(a.val, i, b.val[i]);
+  uint32 carry = 0;
+  for(int i = 0; i < 8; i++) {
+    uint32 old = a.val[i];
+    a.val[i] += b.val[i] + carry;
+    carry = old > a.val[i];
+  }
   return a;
 }
 
 uint256 sub(uint256 a, uint256 b) {
+  uint32 borrow = 0;
   for(int i = 0; i < 8; i++) {
-    sub_digit(a.val, i, b.val[i]);
+    uint32 old = a.val[i];
+    a.val[i] -= b.val[i] + borrow;
+    borrow = old < a.val[i];
   }
   return a;
 }
