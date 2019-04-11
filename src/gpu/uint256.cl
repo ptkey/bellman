@@ -1,24 +1,36 @@
+// FinalityLabs - 2019
+// 256-bit prime-field arithmetic library (addmod, submod, mulmod, powmod)
+// P = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
+// Montgomery reduction parameters:
+// B = 2^32 (Because our digits are uint32)
+// R = B^8 = 2^256 (R and P are coprime as P is an odd prime)
+
 typedef uint uint32;
 typedef ulong uint64;
+typedef struct { uint32 val[8]; } uint256;
 
-typedef struct {
-  uint32 val[8];
-} uint256;
+// Field Modulus
+#define P ((uint256){0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,0x09a1d805,0x3339d808,0x299d7d48,0x73eda753})
 
+// Montgomery form of 1 = (1 * R mod P)
 #define ONE ((uint256){0xfffffffe,0x00000001,0x00034802,0x5884b7fa,0xecbc4ff5,0x998c4fef,0xacc5056f,0x1824b159})
-#define P0INV ((uint32)4294967295)
 
-void add_digit(uint32 *res, uint32 index, uint32 num) {
+// -(1/P.val[0]) mod B
+#define INV ((uint32)4294967295)
+
+// Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
+void add_digit(uint32 *res, uint32 i, uint32 num) {
   while(true) {
-    uint32 old = res[index];
-    res[index] += num;
-    if(res[index] < old) {
+    uint32 old = res[i];
+    res[i] += num;
+    if(res[i] < old) {
       num = 1;
-      index++;
+      i++;
     } else break;
   }
 }
 
+// Greater than or equal
 bool gte(uint256 a, uint256 b) {
   for(int i = 7; i >= 0; i--){
     if(a.val[i] > b.val[i])
@@ -29,6 +41,7 @@ bool gte(uint256 a, uint256 b) {
   return true;
 }
 
+// Normal addition
 uint256 add(uint256 a, uint256 b) {
   uint32 carry = 0;
   for(int i = 0; i < 8; i++) {
@@ -39,6 +52,7 @@ uint256 add(uint256 a, uint256 b) {
   return a;
 }
 
+// Normal subtraction
 uint256 sub(uint256 a, uint256 b) {
   uint32 borrow = 0;
   for(int i = 0; i < 8; i++) {
@@ -49,9 +63,11 @@ uint256 sub(uint256 a, uint256 b) {
   return a;
 }
 
-uint256 mul_reduce(uint256 a, uint256 b) {
-  uint256 P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
-               0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
+// Modular multiplication
+uint256 mulmod(uint256 a, uint256 b) {
+  uint256 p = P; // TODO: Find a solution for this
+
+  // Long multiplication
   uint32 res[16] = {0};
   for(int i = 0; i < 8; i++) {
     for(int j = 0; j < 8; j++) {
@@ -62,55 +78,57 @@ uint256 mul_reduce(uint256 a, uint256 b) {
       add_digit(res, i + j + 1, hi);
     }
   }
+
+  // Montgomery reduction
   for (int i = 0; i < 8; i++)
   {
-    uint64 u = ((uint64)P0INV * (uint64)res[i]) & 0xffffffff;
+    uint64 u = ((uint64)INV * (uint64)res[i]) & 0xffffffff;
     for(int j = 0; j < 8; j++) {
-      uint64 total = u * (uint64)P.val[j];
+      uint64 total = u * (uint64)p.val[j];
       uint32 lo = total & 0xffffffff;
       uint32 hi = total >> 32;
       add_digit(res, i + j, lo);
       add_digit(res, i + j + 1, hi);
     }
   }
+
+  // Divide by R
   uint256 result;
   for(int i = 0; i < 8; i++) result.val[i] = res[i+8];
-  if(gte(result, P))
-    result = sub(result, P);
+
+  if(gte(result, p))
+    result = sub(result, p);
+
   return result;
 }
 
-uint256 mulmod(uint256 a, uint256 b) {
-  return mul_reduce(a, b);
-}
-
+// Modular negation
 uint256 negmod(uint256 a) {
-  uint256 P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
-               0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
-  return sub(P, a);
+  uint256 p = P; // TODO: Find a solution for this
+  return sub(p, a);
 }
 
+// Modular subtraction
 uint256 submod(uint256 a, uint256 b) {
-  uint256 P = {0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,
-               0x09a1d805,0x3339d808,0x299d7d48,0x73eda753};
+  uint256 p = P; // TODO: Find a solution for this
   uint256 res = sub(a, b);
-
-  if(!gte(a, b)) res = add(res, P);
-
+  if(!gte(a, b)) res = add(res, p);
   return res;
 }
 
+// Modular addition
 uint256 addmod(uint256 a, uint256 b) {
   return submod(a, negmod(b));
 }
 
-uint256 powmod(uint256 b, uint32 p) {
+// Modular exponentiation
+uint256 powmod(uint256 base, uint32 exponent) {
   uint256 res = ONE;
-  while(p > 0) {
-    if (p & 1)
-      res = mulmod(res, b);
-    p = p >> 1;
-    b = mulmod(b, b);
+  while(exponent > 0) {
+    if (exponent & 1)
+      res = mulmod(res, base);
+    exponent = exponent >> 1;
+    base = mulmod(base, base);
   }
   return res;
 }
