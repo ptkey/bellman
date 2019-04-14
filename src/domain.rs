@@ -28,7 +28,7 @@ use super::multicore::Worker;
 
 use gpu;
 const GPU_FFT : bool = true;
-const GPU_FFT_CUSTOM : bool = false;
+const GPU_FFT_CUSTOM : bool = true;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -287,7 +287,9 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::Kernel>, a: &mut [T],
             parallel_fft(a, worker, omega, log_n, log_cpus);
         }
     }
-    println!("\t - Done! FFT round took {} seconds", now.elapsed().as_secs());
+    println!("\t - Done! FFT round took {} seconds, {} milliseconds", 
+        now.elapsed().as_secs(),
+        (now.elapsed().as_secs() * 1_000) + (now.elapsed().subsec_nanos() / 1_000_000) as u64);
 }
 
 use pairing::bls12_381::Fr;
