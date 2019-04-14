@@ -28,7 +28,6 @@ use super::multicore::Worker;
 
 use gpu;
 const GPU_FFT : bool = false;
-const RADIX2_FFT : bool = false;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -287,7 +286,6 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::Kernel>, a: &mut [T],
             parallel_fft(a, worker, omega, log_n, log_cpus);
         }
     }
-
     println!("\t - Done! FFT round took {} seconds", now.elapsed().as_secs());
 }
 
@@ -298,11 +296,7 @@ fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], om
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    if RADIX2_FFT {
-        kern.radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    } else {
-        kern.regular_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    }
+    kern.radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
 }
 
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
