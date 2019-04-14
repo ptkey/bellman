@@ -27,7 +27,8 @@ use super::{
 use super::multicore::Worker;
 
 use gpu;
-const GPU_FFT : bool = false;
+const GPU_FFT : bool = true;
+const GPU_FFT_CUSTOM : bool = false;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -296,7 +297,11 @@ fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], om
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    kern.radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
+    if GPU_FFT_CUSTOM {
+        kern.custom_radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
+    } else {
+        kern.bealto_radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
+    }
 }
 
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
