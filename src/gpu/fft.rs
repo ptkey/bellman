@@ -95,17 +95,15 @@ impl FFT_Kernel {
 
         let mut in_src = true;
         let n = 1 << lgn;
-        let base: i32 = 2;
 
-        for lgm in 0..lgn {
+        for lg2p in 0..lgn {
             let kernel = self.proque.kernel_builder("bealto_radix2_fft")
                 .global_work_size([n >> 1])
                 .arg(if in_src { &self.fft_buffer } else { &self.fft_dst_buffer })
                 .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_buffer })
                 .arg(ta.len() as u32)
                 .arg(tomega)
-                .arg(lgm as u32)
-                .arg(base.pow(lgm) as u32)
+                .arg(lg2p as u32)
                 .build()?;
 
             unsafe { kernel.enq()?; }
@@ -153,17 +151,15 @@ impl FFT_Kernel {
 
         let mut in_src = true;
         let n = 1 << lgn;
-        let base: i32 = 4;
 
-        for lgm in 0..lgn/2 {
-            let kernel = self.proque.kernel_builder("bealto_radix2_fft")
-                .global_work_size([n >> 1])
+        for lg4p in 0..lgn/2 {
+            let kernel = self.proque.kernel_builder("bealto_radix4_fft")
+                .global_work_size([n >> 2])
                 .arg(if in_src { &self.fft_buffer } else { &self.fft_dst_buffer })
                 .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_buffer })
                 .arg(ta.len() as u32)
                 .arg(tomega)
-                .arg(lgm as u32)
-                .arg(base.pow(lgm) as u32)
+                .arg(lg4p * 2 as u32)
                 .build()?;
 
             unsafe { kernel.enq()?; }
