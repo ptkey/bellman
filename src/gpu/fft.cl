@@ -77,18 +77,37 @@ __kernel void bealto_radix4_fft(__global ulong4* src,
   y += ((i-k)<<2) + k;
   
   uint256 u0 = x[0];
-  uint256 twiddle = powmod(omega, (n >> lgm >> 2) * k);
+  uint256 twiddle = powmod(omega, (n >> (lgm << 1) >> 1) * k);
   uint256 u1 = mulmod(x[t], twiddle);
   uint256 u2 = mulmod(x[2*t], powmod(twiddle, 2));
   uint256 u3 = mulmod(x[3*t], powmod(twiddle, 3));
 
-  uint256 v0 = addmod(u0, u2);
-  uint256 v1 = submod(u0, u2);
-  uint256 v2 = addmod(u1, u3);
-  uint256 v3 = submod(u1, u3);
+  // dft2(a,c)
+  uint256 tmp = submod(u0, u2);
+  u0 = addmod(u0, u2);
+  u2 = tmp;
 
-  y[0] = addmod(v0,v2);
-  y[p] = addmod(v1,v3);
-  y[2*p] = submod(v0,v2);
-  y[3*p] = submod(v1,v3);
+  // dft2(b,d)
+  uint256 tmp2 = submod(u1, u3);
+  u1 = addmod(u1, u3);
+  u3 = tmp2;
+
+  // unsure about this part
+  // twiddle d
+  u3 = mulmod(u3, twiddle);
+
+  // dft2(a,b)
+  uint256 tmp3 = submod(u0, u1);
+  u0 = addmod(u0, u1);
+  u1 = tmp3;
+
+  // dft2(c,d)
+  uint256 tmp4 = submod(u2, u3);
+  u2 = addmod(u2, u3);
+  u3 = tmp2;  
+
+  y[0] = u0;
+  y[p] = u2;
+  y[2*p] = u1;
+  y[3*p] = u3;
 }

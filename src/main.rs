@@ -43,8 +43,8 @@ fn main(){
         };
 
         let p = generate_random_parameters(c, rng).unwrap();
-        let mut param_file = File::create(parameters_path).expect("Unable to create parameters file!");
-        p.write(param_file).expect("Unable to write parameters file!");
+        // let mut param_file = File::create(parameters_path).expect("Unable to create parameters file!");
+        // p.write(param_file).expect("Unable to write parameters file!");
         p
     };
 

@@ -8,7 +8,6 @@
 typedef uint uint32;
 typedef ulong uint64;
 typedef struct { uint32 val[8]; } uint256;
-typedef struct { uint256 val[2]; } uint256_2;
 
 // Field Modulus
 #define P ((uint256){0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,0x09a1d805,0x3339d808,0x299d7d48,0x73eda753})
