@@ -28,7 +28,7 @@ use super::multicore::Worker;
 
 use gpu;
 const GPU_FFT : bool = true;
-const GPU_FFT_CUSTOM : bool = true;
+const GPU_FFT_CUSTOM : bool = false;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -37,7 +37,7 @@ pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     omegainv: E::Fr,
     geninv: E::Fr,
     minv: E::Fr,
-    kern: Option<gpu::Kernel>
+    kern: Option<gpu::FFT_Kernel>
 }
 
 impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
@@ -68,7 +68,6 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
                 return Err(SynthesisError::PolynomialDegreeTooLarge)
             }
         }
-
         // Compute omega, the 2^exp primitive root of unity
         let mut omega = E::Fr::root_of_unity();
         for _ in exp..E::Fr::S {
@@ -85,7 +84,7 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             omegainv: omega.inverse().unwrap(),
             geninv: E::Fr::multiplicative_generator().inverse().unwrap(),
             minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap(),
-            kern: if GPU_FFT { Some(gpu::create_kernel(m as u32)) } else { None }
+            kern: if GPU_FFT { Some(gpu::initialize(m as u32)) } else { None }
         })
     }
 
@@ -267,7 +266,7 @@ impl<E: Engine> Group<E> for Scalar<E> {
     }
 }
 
-fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::Kernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
+fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFT_Kernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
     let now = Instant::now();
 
@@ -294,16 +293,20 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::Kernel>, a: &mut [T],
 
 use pairing::bls12_381::Fr;
 
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
+fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFT_Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
+    let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
+    println!("index 123 of input array before: {:?}", t);
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
     if GPU_FFT_CUSTOM {
-        kern.custom_radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
+        kern.bealto_radix4_fft(ta, tomega, log_n).expect("GPU FFT failed!");
     } else {
         kern.bealto_radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
     }
+    let t2 = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
+    println!("index 123 of input array after: {:?}", t2);
 }
 
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
@@ -362,53 +365,25 @@ fn parallel_fft<E: Engine, T: Group<E>>(
     assert!(log_n >= log_cpus);
 
     let num_cpus = 1 << log_cpus;
-    println!("Number of log_cpus: {}", log_cpus);
-    println!("Number of cpus: {}", num_cpus);
-    println!("log_n: {}", log_n);
-    println!("omega: {}", omega);
 
     let log_new_n = log_n - log_cpus;
-    println!("log_new_n: {}", log_new_n);
     let mut tmp = vec![vec![T::group_zero(); 1 << log_new_n]; num_cpus];
-    println!("tmp vec: {} vectors of {} elements", tmp.len(), tmp[0].len());
     let new_omega = omega.pow(&[num_cpus as u64]);
-    println!("new omega: {}", new_omega);
 
-    let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(&mut tmp[0]) };
-    println!("a element: {:?}", ta[0]);
+    let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
+    println!("a element before: {:?}", ta[123]);
 
     worker.scope(0, |scope, _| {
         let a = &*a;
-        for (j, tmp) in tmp.iter_mut().enumerate() { // for each compute unit
+        for (j, tmp) in tmp.iter_mut().enumerate() {
             scope.spawn(move || {
                 // Shuffle into a sub-FFT
                 let omega_j = omega.pow(&[j as u64]);
                 let omega_step = omega.pow(&[(j as u64) << log_new_n]);
 
                 let mut elt = E::Fr::one();
-                for i in 0..(1 << log_new_n) { // for each chunk of log_new_n chunks: n=1024, i=0...64
-                    for s in 0..num_cpus { // for each compute unit
-                        // current index + chunk
-                        // for n=1024
-                        // i = 0
-                        // 1: 0+(0^6) % 1024 = 0
-                        // 2: 0+(1^6) % 1024 = 64
-                        // 3: 0+(2^6) % 1024 = 126
-                        // ...
-                        // 16: 0+(15^6) % 1024 = 960
-
-                        // i = 1
-                        // 1: 1+(0^6) % 1024 = 1
-                        // 2: 1+(1^6) % 1024 = 65
-                        // ...
-                        // 16: 1+(15^6) % 1024 = 961
-
-                        // ...
-                        // i = 64
-                        // 1: 64+(0^6) % 1024 = 64
-                        // 2: 64+(1^6) % 1024 = 128
-                        // ...
-                        // 16: 64+(15^6) % 1024 = 0
+                for i in 0..(1 << log_new_n) {
+                    for s in 0..num_cpus {
                         let idx = (i + (s << log_new_n)) % (1 << log_n);
                         let mut t = a[idx];
                         t.group_mul_assign(&elt);
@@ -439,6 +414,8 @@ fn parallel_fft<E: Engine, T: Group<E>>(
             });
         }
     });
+    let ta2 = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(&mut tmp[0]) };
+    println!("a element after: {:?}", ta2[123]);
 }
 
 // Test multiplying various (low degree) polynomials together and

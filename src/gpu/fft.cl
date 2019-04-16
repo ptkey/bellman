@@ -27,26 +27,25 @@ __kernel void custom_radix2_fft(__global ulong4* buffer,
 __kernel void bealto_radix2_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
-                  uint lgn,
                   ulong4 om,
-                  uint lgm) {
+                  uint lgm,
+                  uint p) {
 
   __global uint256 *x = src;
   __global uint256 *y = dst;
   uint256 omega = *(uint256*)&om;
 
   uint i = get_global_id(0);
-  uint t = n >> 1;
-  uint m = 1 << lgm;
+  uint t = n >> 1; //512
 
-  uint k = i & (m - 1);
+  uint k = i & (p - 1); // p1 = 1:0, 2:0.. p2 = 1:0, 2:0... p4 = 1:0, 2:1, 3:2, 4:3 ...
 
   uint256 u0;
   u0 = x[i];
   uint256 u1;
   u1 = x[i+t];
 
-  uint256 twiddle = powmod(omega, (n >> lgm >> 1) * k);
+  uint256 twiddle = powmod(omega, (n >> lgm >> 1) * k); // 512, 256, ... 1
   u1 = mulmod(u1, twiddle);
 
   uint256 tmp = submod(u0, u1);
@@ -55,5 +54,20 @@ __kernel void bealto_radix2_fft(__global ulong4* src,
 
   uint j = (i<<1) - k;
   y[j] = u0;
-  y[j+m] = u1;
+  y[j+p] = u1;
+}
+
+__kernel void bealto_radix4_fft(__global ulong4* src,
+                  __global ulong4* dst,
+                  uint n,
+                  ulong4 om,
+                  uint lgm,
+                  uint p) {
+  __global uint256 *x = src;
+  __global uint256 *y = dst;
+
+  uint i = get_global_id(0);
+  uint t = n >> 2; //256
+  uint k = i & (p - 1);
+
 }
