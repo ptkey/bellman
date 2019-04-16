@@ -157,7 +157,7 @@ impl FFT_Kernel {
 
         for lgm in 0..lgn/2 {
             let kernel = self.proque.kernel_builder("bealto_radix2_fft")
-                .global_work_size([(n >> 1)/2])
+                .global_work_size([n >> 1])
                 .arg(if in_src { &self.fft_buffer } else { &self.fft_dst_buffer })
                 .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_buffer })
                 .arg(ta.len() as u32)

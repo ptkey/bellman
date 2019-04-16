@@ -36,9 +36,9 @@ __kernel void bealto_radix2_fft(__global ulong4* src,
   uint256 omega = *(uint256*)&om;
 
   uint i = get_global_id(0);
-  uint t = n >> 1; //512
+  uint t = n >> 1;
 
-  uint k = i & (p - 1); // p1 = 1:0, 2:0.. p2 = 1:0, 2:0... p4 = 1:0, 2:1, 3:2, 4:3 ...
+  uint k = i & (p - 1);
   x += i;
 
   uint256 u0;
@@ -46,7 +46,7 @@ __kernel void bealto_radix2_fft(__global ulong4* src,
   uint256 u1;
   u1 = x[t];
 
-  uint256 twiddle = powmod(omega, (n >> lgm >> 1) * k); // 512, 256, ... 1
+  uint256 twiddle = powmod(omega, (n >> lgm >> 1) * k);
   u1 = mulmod(u1, twiddle);
 
   uint256 tmp = submod(u0, u1);

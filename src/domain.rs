@@ -28,7 +28,7 @@ use super::multicore::Worker;
 
 use gpu;
 const GPU_FFT : bool = true;
-const GPU_FFT_CUSTOM : bool = false;
+const GPU_FFT_CUSTOM : bool = true;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
