@@ -143,6 +143,41 @@ impl FFT_Kernel {
        //     .fill_val(0)
        //     .build().unwrap();
 
+        let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
+        let tomega = *(unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) });
+
+        let mut vec = vec![Ulong4::zero(); self.fft_buffer.len()];
+        for i in 0..self.fft_buffer.len() { vec[i] = ta[i]; }
+
+        self.fft_buffer.write(&vec).enq()?;
+
+        let mut in_src = true;
+        let n = 1 << lgn;
+        let base: i32 = 4;
+
+        for lgm in 0..lgn/2 {
+            let kernel = self.proque.kernel_builder("bealto_radix2_fft")
+                .global_work_size([(n >> 1)/2])
+                .arg(if in_src { &self.fft_buffer } else { &self.fft_dst_buffer })
+                .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_buffer })
+                .arg(ta.len() as u32)
+                .arg(tomega)
+                .arg(lgm as u32)
+                .arg(base.pow(lgm) as u32)
+                .build()?;
+
+            unsafe { kernel.enq()?; }
+
+            in_src = !in_src;
+        }
+
+        if in_src {
+            self.fft_buffer.read(&mut vec).enq()?;
+        } else {
+            self.fft_dst_buffer.read(&mut vec).enq()?;
+        }
+
+        for i in 0..a.len() { ta[i] = vec[i]; }
 
         Ok(())
     }
