@@ -2,6 +2,7 @@ extern crate ocl;
 
 use self::ocl::{ProQue, Platform, Device, Context, Queue, Buffer, Program, Kernel, Event, EventList, flags};
 use self::ocl::prm::Ulong4;
+use self::ocl::{core};
 use pairing::bls12_381::Fr;
 use std::io::Read;
 use std::fs::File;
@@ -23,17 +24,26 @@ pub fn initialize(n: u32) -> FFT_Kernel {
     FFT_Kernel {proque: pq, fft_buffer: src, fft_dst_buffer: dst }
 }
 
-// pub fn find_platform() -> Option<Platform> {
-//     let platform_name = "Experimental OpenCL 2.1 CPU Only Platform";
+pub fn find_gpu() -> bool {
+    let platforms = Platform::list();
+    let mut test = false;
+    println!("Looping through avaliable platforms ({}):", platforms.len());
 
-//     for platform in Platform::list() {
-//         if platform.name() == platform_name {
-//             return Some(platform);
-//         }
-//     }
+    for p_idx in 0..platforms.len() {
+        let platform = &platforms[p_idx];
 
-//     None
-// }
+        let devices = Device::list(platform, Some(flags::DEVICE_TYPE_GPU)).unwrap();
+
+        if devices.is_empty() { continue; }
+
+        test = true;
+        // for device in devices.iter() {
+        //     println!("Device Name: {:?}, Vendor: {:?}", device.name().unwrap(),
+        //         device.vendor().unwrap());
+        // }
+    }    
+    test
+}
 
 impl FFT_Kernel {
 
@@ -123,7 +133,7 @@ impl FFT_Kernel {
 
     pub fn bealto_radix4_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
        // let platform = Platform::first().unwrap();
-       // println!("{:?}", p.name());
+       // let platform_id = core::default_platform()?;
 
        // let device = Device::first(platform).unwrap();
        // println!("{:?}", device.name());

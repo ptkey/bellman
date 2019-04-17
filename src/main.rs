@@ -16,7 +16,6 @@ use std::thread::sleep;
 mod dummy;
 
 fn main(){
-
     use pairing::bls12_381::{Bls12, Fr};
     use rand::thread_rng;
     use bellman::groth16::{

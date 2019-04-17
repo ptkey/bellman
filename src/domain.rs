@@ -27,7 +27,7 @@ use super::{
 use super::multicore::Worker;
 
 use gpu;
-const GPU_FFT : bool = true;
+
 const GPU_FFT_CUSTOM : bool = true;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
@@ -84,7 +84,7 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             omegainv: omega.inverse().unwrap(),
             geninv: E::Fr::multiplicative_generator().inverse().unwrap(),
             minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap(),
-            kern: if GPU_FFT { Some(gpu::initialize(m as u32)) } else { None }
+            kern: if is_gpu() { Some(gpu::initialize(m as u32)) } else { None }
         })
     }
 
@@ -266,11 +266,15 @@ impl<E: Engine> Group<E> for Scalar<E> {
     }
 }
 
+fn is_gpu() -> bool {
+    gpu::find_gpu()
+}
+
 fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFT_Kernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
     let now = Instant::now();
 
-    if GPU_FFT {
+    if is_gpu() {
         println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
         if let Some(ref mut k) = kern {
             bls12_gpu_fft(k, a, omega, log_n);
@@ -297,8 +301,8 @@ fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFT_Kernel, a: &mut [T]
 {
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
-    let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
-    println!("index 123 of input array before: {:?}", t);
+    // let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
+    // println!("index 123 of input array before: {:?}", t);
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
     if GPU_FFT_CUSTOM {
         kern.bealto_radix4_fft(ta, tomega, log_n).expect("GPU FFT failed!");
@@ -306,7 +310,7 @@ fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFT_Kernel, a: &mut [T]
         kern.bealto_radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
     }
     let t2 = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
-    println!("index 123 of input array after: {:?}", t2);
+    // println!("index 123 of input array after: {:?}", t2);
 }
 
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
@@ -370,8 +374,8 @@ fn parallel_fft<E: Engine, T: Group<E>>(
     let mut tmp = vec![vec![T::group_zero(); 1 << log_new_n]; num_cpus];
     let new_omega = omega.pow(&[num_cpus as u64]);
 
-    let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
-    println!("a element before: {:?}", ta[123]);
+    // let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
+    // println!("a element before: {:?}", ta[123]);
 
     worker.scope(0, |scope, _| {
         let a = &*a;
@@ -414,8 +418,8 @@ fn parallel_fft<E: Engine, T: Group<E>>(
             });
         }
     });
-    let ta2 = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(&mut tmp[0]) };
-    println!("a element after: {:?}", ta2[123]);
+    // let ta2 = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(&mut tmp[0]) };
+    // println!("a element after: {:?}", ta2[123]);
 }
 
 // Test multiplying various (low degree) polynomials together and
