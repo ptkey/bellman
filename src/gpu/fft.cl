@@ -1,4 +1,4 @@
-__kernel void bealto_radix2_fft(__global ulong4* src,
+__kernel void radix2_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
                   ulong4 om,
@@ -33,7 +33,7 @@ __kernel void bealto_radix2_fft(__global ulong4* src,
   y[p] = u1;
 }
 
-__kernel void bealto_radix4_fft(__global ulong4* src,
+__kernel void radix4_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
                   ulong4 om,

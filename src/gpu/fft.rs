@@ -47,7 +47,8 @@ pub fn find_gpu() -> bool {
 
 impl FFT_Kernel {
 
-    pub fn bealto_radix2_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
+    // Radix 2^deg kernel
+    pub fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32, deg: u32) -> ocl::Result<()> {
 
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
         let tomega = *(unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) });
@@ -59,15 +60,16 @@ impl FFT_Kernel {
 
         let mut in_src = true;
         let n = 1 << lgn;
+        let kernel_name = format!("radix{}_fft", (1 << deg));
 
-        for lg2p in 0..lgn {
-            let kernel = self.proque.kernel_builder("bealto_radix2_fft")
-                .global_work_size([n >> 1])
+        for i in 0..(lgn >> (deg - 1)) {
+            let kernel = self.proque.kernel_builder(kernel_name.clone())
+                .global_work_size([n >> deg])
                 .arg(if in_src { &self.fft_buffer } else { &self.fft_dst_buffer })
                 .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_buffer })
                 .arg(ta.len() as u32)
                 .arg(tomega)
-                .arg(lg2p as u32)
+                .arg(i << (deg - 1) as u32)
                 .build()?;
 
             unsafe { kernel.enq()?; }
@@ -82,45 +84,6 @@ impl FFT_Kernel {
         }
 
         for i in 0..a.len() { ta[i] = vec[i]; }
-        Ok(())
-    }
-
-    pub fn bealto_radix4_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
-
-        let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
-        let tomega = *(unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) });
-
-        let mut vec = vec![Ulong4::zero(); self.fft_buffer.len()];
-        for i in 0..self.fft_buffer.len() { vec[i] = ta[i]; }
-
-        self.fft_buffer.write(&vec).enq()?;
-
-        let mut in_src = true;
-        let n = 1 << lgn;
-
-        for lg4p in 0..lgn/2 {
-            let kernel = self.proque.kernel_builder("bealto_radix4_fft")
-                .global_work_size([n >> 2])
-                .arg(if in_src { &self.fft_buffer } else { &self.fft_dst_buffer })
-                .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_buffer })
-                .arg(ta.len() as u32)
-                .arg(tomega)
-                .arg(lg4p * 2 as u32)
-                .build()?;
-
-            unsafe { kernel.enq()?; }
-
-            in_src = !in_src;
-        }
-
-        if in_src {
-            self.fft_buffer.read(&mut vec).enq()?;
-        } else {
-            self.fft_dst_buffer.read(&mut vec).enq()?;
-        }
-
-        for i in 0..a.len() { ta[i] = vec[i]; }
-
         Ok(())
     }
 }

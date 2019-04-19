@@ -28,7 +28,7 @@ use super::multicore::Worker;
 
 use gpu;
 
-const GPU_FFT_CUSTOM : bool = true;
+const GPU_FFT_RADIX_DEGREE : u32 = 1; // Radix2
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -290,7 +290,7 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFT_Kernel>, a: &mut 
             parallel_fft(a, worker, omega, log_n, log_cpus);
         }
     }
-    println!("\t - Done! FFT round took {} seconds, {} milliseconds", 
+    println!("\t - Done! FFT round took {} seconds, {} milliseconds",
         now.elapsed().as_secs(),
         (now.elapsed().as_secs() * 1_000) + (now.elapsed().subsec_nanos() / 1_000_000) as u64);
 }
@@ -304,11 +304,7 @@ fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFT_Kernel, a: &mut [T]
     // let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
     // println!("index 123 of input array before: {:?}", t);
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    if GPU_FFT_CUSTOM {
-        kern.bealto_radix4_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    } else {
-        kern.bealto_radix2_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    }
+    kern.radix_fft(ta, tomega, log_n, GPU_FFT_RADIX_DEGREE).expect("GPU FFT failed!");
     let t2 = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
     // println!("index 123 of input array after: {:?}", t2);
 }
