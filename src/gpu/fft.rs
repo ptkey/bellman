@@ -10,7 +10,7 @@ use std::cmp;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
-const MAX_RADIX_DEGREE : u32 = 3; // Radix8
+const MAX_RADIX_DEGREE : u32 = 4; // Radix16
 
 pub struct FFT_Kernel {
     proque: ProQue,
