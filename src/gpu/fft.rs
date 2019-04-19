@@ -62,14 +62,14 @@ impl FFT_Kernel {
         let n = 1 << lgn;
         let kernel_name = format!("radix{}_fft", (1 << deg));
 
-        for i in 0..(lgn >> (deg - 1)) {
+        for i in 0..(lgn / deg) {
             let kernel = self.proque.kernel_builder(kernel_name.clone())
                 .global_work_size([n >> deg])
                 .arg(if in_src { &self.fft_buffer } else { &self.fft_dst_buffer })
                 .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_buffer })
                 .arg(ta.len() as u32)
                 .arg(tomega)
-                .arg(i << (deg - 1) as u32)
+                .arg(i * deg as u32)
                 .build()?;
 
             unsafe { kernel.enq()?; }
