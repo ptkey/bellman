@@ -28,8 +28,6 @@ use super::multicore::Worker;
 
 use gpu;
 
-const GPU_FFT_RADIX_DEGREE : u32 = 1; // Radix2
-
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
     exp: u32,
@@ -304,7 +302,7 @@ fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFT_Kernel, a: &mut [T]
     // let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
     // println!("index 123 of input array before: {:?}", t);
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    kern.radix_fft(ta, tomega, log_n, GPU_FFT_RADIX_DEGREE).expect("GPU FFT failed!");
+    kern.radix_fft(ta, tomega, log_n).expect("GPU FFT failed!");
     let t2 = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
     // println!("index 123 of input array after: {:?}", t2);
 }
