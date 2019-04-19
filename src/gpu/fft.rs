@@ -86,24 +86,6 @@ impl FFT_Kernel {
     }
 
     pub fn bealto_radix4_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
-       // let platform = Platform::first().unwrap();
-       // let platform_id = core::default_platform()?;
-
-       // let device = Device::first(platform).unwrap();
-       // println!("{:?}", device.name());
-       // let context = Context::builder()
-       //     .platform(platform)
-       //     .devices(device.clone())
-       //     .build().expect("Failed to create context");
-
-       // let queue = Queue::new(&context, device, None).unwrap();
-
-       // let buffer = Buffer::<u32>::builder()
-       //     .queue(queue.clone())
-       //     .flags(flags::MEM_READ_WRITE)
-       //     .len(1)
-       //     .fill_val(0)
-       //     .build().unwrap();
 
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
         let tomega = *(unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) });
