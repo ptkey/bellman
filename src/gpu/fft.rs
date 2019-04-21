@@ -23,7 +23,7 @@ pub fn initialize(n: u32) -> FFTKernel {
 }
 
 pub fn find_gpu() -> bool {
-    let platforms = Platform::list();
+    /*let platforms = Platform::list();
     let mut test = false;
     println!("Looping through avaliable platforms ({}):", platforms.len());
 
@@ -39,7 +39,7 @@ pub fn find_gpu() -> bool {
         //     println!("Device Name: {:?}, Vendor: {:?}", device.name().unwrap(),
         //         device.vendor().unwrap());
         // }
-    }
+    }*/
     true
 }
 
