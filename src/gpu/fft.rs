@@ -3,6 +3,7 @@ extern crate ocl;
 use self::ocl::{ProQue, Platform, Device, Buffer, flags};
 use self::ocl::prm::Ulong4;
 use pairing::bls12_381::Fr;
+use std::cmp;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
@@ -72,18 +73,12 @@ impl FFTKernel {
 
         let mut in_src = true;
         let mut lgp = 0u32;
-
-        for _ in 0..(lgn / MAX_RADIX_DEGREE) {
-            match self.radix_fft_round(ta, tomega, lgn, lgp, MAX_RADIX_DEGREE, in_src) {
+        while lgp < lgn {
+            let deg = cmp::min(MAX_RADIX_DEGREE, lgn - lgp);
+            match self.radix_fft_round(ta, tomega, lgn, lgp, deg, in_src) {
                 Ok(_) => (), Err(e) => return Err(e),
             }
-            lgp += MAX_RADIX_DEGREE;
-            in_src = !in_src;
-        }
-        if lgn > lgp {
-            match self.radix_fft_round(ta, tomega, lgn, lgp, lgn - lgp, in_src) {
-               Ok(_) => (), Err(e) => return Err(e),
-            }
+            lgp += deg;
             in_src = !in_src;
         }
 
