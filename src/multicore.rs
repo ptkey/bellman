@@ -4,10 +4,12 @@
 //! crossbeam but may be extended in the future to
 //! allow for various parallelism strategies.
 
+use std::env;
+use std::any::Any;
 use num_cpus;
 use futures::{Future, IntoFuture, Poll};
 use futures_cpupool::{CpuPool, CpuFuture};
-use crossbeam::{self, Scope};
+use crossbeam::thread::{self, Scope};
 
 #[derive(Clone)]
 pub struct Worker {
@@ -27,7 +29,17 @@ impl Worker {
     }
 
     pub fn new() -> Worker {
-        Self::new_with_cpus(num_cpus::get())
+        let cpus = if let Ok(num) = env::var("BELLMAN_NUM_CPUS") {
+            if let Ok(num) = num.parse() {
+                num
+            } else {
+                num_cpus::get()
+            }
+        } else {
+            num_cpus::get()
+        };
+
+        Self::new_with_cpus(cpus)
     }
 
     pub fn log_num_cpus(&self) -> u32 {
@@ -52,7 +64,7 @@ impl Worker {
         &self,
         elements: usize,
         f: F
-    ) -> R
+    ) -> Result<R, Box<dyn Any + 'static + Send>>
         where F: FnOnce(&Scope<'a>, usize) -> R
     {
         let chunk_size = if elements < self.cpus {
@@ -61,7 +73,7 @@ impl Worker {
             elements / self.cpus
         };
 
-        crossbeam::scope(|scope| {
+        thread::scope(|scope| {
             f(scope, chunk_size)
         })
     }

@@ -15,9 +15,11 @@ use std::time::Instant;
 
 use pairing::{
     Engine,
+    CurveProjective,
+};
+use ff::{
     Field,
     PrimeField,
-    CurveProjective
 };
 
 use super::{
@@ -101,20 +103,20 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             let minv = self.minv;
 
             for v in self.coeffs.chunks_mut(chunk) {
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     for v in v {
                         v.group_mul_assign(&minv);
                     }
                 });
             }
-        });
+        }).unwrap();
     }
 
     pub fn distribute_powers(&mut self, worker: &Worker, g: E::Fr)
     {
         worker.scope(self.coeffs.len(), |scope, chunk| {
             for (i, v) in self.coeffs.chunks_mut(chunk).enumerate() {
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     let mut u = g.pow(&[(i * chunk) as u64]);
                     for v in v.iter_mut() {
                         v.group_mul_assign(&u);
@@ -122,7 +124,7 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
                     }
                 });
             }
-        });
+        }).unwrap();
     }
 
     pub fn coset_fft(&mut self, worker: &Worker)
@@ -157,13 +159,13 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
 
         worker.scope(self.coeffs.len(), |scope, chunk| {
             for v in self.coeffs.chunks_mut(chunk) {
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     for v in v {
                         v.group_mul_assign(&i);
                     }
                 });
             }
-        });
+        }).unwrap();
     }
 
     /// Perform O(n) multiplication of two polynomials in the domain.
@@ -172,13 +174,13 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
 
         worker.scope(self.coeffs.len(), |scope, chunk| {
             for (a, b) in self.coeffs.chunks_mut(chunk).zip(other.coeffs.chunks(chunk)) {
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     for (a, b) in a.iter_mut().zip(b.iter()) {
                         a.group_mul_assign(&b.0);
                     }
                 });
             }
-        });
+        }).unwrap();
     }
 
     /// Perform O(n) subtraction of one polynomial from another in the domain.
@@ -187,13 +189,13 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
 
         worker.scope(self.coeffs.len(), |scope, chunk| {
             for (a, b) in self.coeffs.chunks_mut(chunk).zip(other.coeffs.chunks(chunk)) {
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     for (a, b) in a.iter_mut().zip(b.iter()) {
                         a.group_sub_assign(&b);
                     }
                 });
             }
-        });
+        }).unwrap();
     }
 }
 
@@ -376,7 +378,7 @@ fn parallel_fft<E: Engine, T: Group<E>>(
     worker.scope(0, |scope, _| {
         let a = &*a;
         for (j, tmp) in tmp.iter_mut().enumerate() {
-            scope.spawn(move || {
+            scope.spawn(move |_| {
                 // Shuffle into a sub-FFT
                 let omega_j = omega.pow(&[j as u64]);
                 let omega_step = omega.pow(&[(j as u64) << log_new_n]);
@@ -397,14 +399,14 @@ fn parallel_fft<E: Engine, T: Group<E>>(
                 serial_fft(tmp, &new_omega, log_new_n);
             });
         }
-    });
+    }).unwrap();
 
     // TODO: does this hurt or help?
     worker.scope(a.len(), |scope, chunk| {
         let tmp = &tmp;
 
         for (idx, a) in a.chunks_mut(chunk).enumerate() {
-            scope.spawn(move || {
+            scope.spawn(move |_| {
                 let mut idx = idx * chunk;
                 let mask = (1 << log_cpus) - 1;
                 for a in a {
@@ -413,7 +415,7 @@ fn parallel_fft<E: Engine, T: Group<E>>(
                 }
             });
         }
-    });
+    }).unwrap();
     // let ta2 = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(&mut tmp[0]) };
     // println!("a element after: {:?}", ta2[123]);
 }
