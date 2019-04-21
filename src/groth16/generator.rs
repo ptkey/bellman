@@ -4,12 +4,16 @@ use std::sync::Arc;
 
 use pairing::{
     Engine,
-    PrimeField,
-    Field,
     Wnaf,
     CurveProjective,
     CurveAffine
 };
+
+use ff::{
+    Field,
+    PrimeField
+};
+
 
 use super::{
     Parameters,
@@ -247,7 +251,7 @@ pub fn generate_parameters<E, C>(
             worker.scope(powers_of_tau.len(), |scope, chunk| {
                 for (i, powers_of_tau) in powers_of_tau.chunks_mut(chunk).enumerate()
                 {
-                    scope.spawn(move || {
+                    scope.spawn(move |_| {
                         let mut current_tau_power = tau.pow(&[(i*chunk) as u64]);
 
                         for p in powers_of_tau {
@@ -256,7 +260,7 @@ pub fn generate_parameters<E, C>(
                         }
                     });
                 }
-            });
+            }).unwrap();
         }
 
         // coeff = t(x) / delta
@@ -269,7 +273,7 @@ pub fn generate_parameters<E, C>(
             {
                 let mut g1_wnaf = g1_wnaf.shared();
 
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     // Set values of the H query to g1^{(tau^i * t(tau)) / delta}
                     for (h, p) in h.iter_mut().zip(p.iter())
                     {
@@ -285,7 +289,7 @@ pub fn generate_parameters<E, C>(
                     E::G1::batch_normalization(h);
                 });
             }
-        });
+        }).unwrap();
     }
 
     // Use inverse FFT to convert powers of tau to Lagrange coefficients
@@ -349,7 +353,7 @@ pub fn generate_parameters<E, C>(
                 let mut g1_wnaf = g1_wnaf.shared();
                 let mut g2_wnaf = g2_wnaf.shared();
 
-                scope.spawn(move || {
+                scope.spawn(move |_| {
                     for ((((((a, b_g1), b_g2), ext), at), bt), ct) in a.iter_mut()
                                                                        .zip(b_g1.iter_mut())
                                                                        .zip(b_g2.iter_mut())
@@ -409,7 +413,7 @@ pub fn generate_parameters<E, C>(
                     E::G1::batch_normalization(ext);
                 });
             }
-        });
+        }).unwrap();
     }
 
     // Evaluate for inputs.

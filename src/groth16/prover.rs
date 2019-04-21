@@ -7,10 +7,13 @@ use futures::Future;
 
 use pairing::{
     Engine,
-    PrimeField,
-    Field,
     CurveProjective,
     CurveAffine
+};
+
+use ff::{
+    PrimeField,
+    Field,
 };
 
 use super::{
