@@ -84,12 +84,12 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         })
     }
 
-    pub fn fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
+    pub fn fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>)
     {
         best_fft(kern, &mut self.coeffs, worker, &self.omega, self.exp);
     }
 
-    pub fn ifft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
+    pub fn ifft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>)
     {
         best_fft(kern, &mut self.coeffs, worker, &self.omegainv, self.exp);
 
@@ -121,13 +121,13 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         });
     }
 
-    pub fn coset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
+    pub fn coset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>)
     {
         self.distribute_powers(worker, E::Fr::multiplicative_generator());
         self.fft(worker, kern);
     }
 
-    pub fn icoset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
+    pub fn icoset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>)
     {
         let geninv = self.geninv;
 
@@ -262,11 +262,7 @@ impl<E: Engine> Group<E> for Scalar<E> {
     }
 }
 
-fn is_gpu() -> bool {
-    gpu::find_gpu()
-}
-
-fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFT_Kernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
+fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
     let now = Instant::now();
 
@@ -289,16 +285,15 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFT_Kernel>, a: &mut 
 
 use pairing::bls12_381::Fr;
 
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFT_Kernel, a: &mut [T], omega: &E::Fr, log_n: u32)
+fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
+    let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
     // let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
     // println!("index 123 of input array before: {:?}", t);
-    let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
     kern.radix_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    let t2 = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
-    // println!("index 123 of input array after: {:?}", t2);
+    // println!("index 123 of input array after: {:?}", t);
 }
 
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
