@@ -34,8 +34,7 @@ pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     omega: E::Fr,
     omegainv: E::Fr,
     geninv: E::Fr,
-    minv: E::Fr,
-    kern: Option<gpu::FFT_Kernel>
+    minv: E::Fr
 }
 
 impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
@@ -81,19 +80,18 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             omega: omega,
             omegainv: omega.inverse().unwrap(),
             geninv: E::Fr::multiplicative_generator().inverse().unwrap(),
-            minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap(),
-            kern: if is_gpu() { Some(gpu::initialize(m as u32)) } else { None }
+            minv: E::Fr::from_str(&format!("{}", m)).unwrap().inverse().unwrap()
         })
     }
 
-    pub fn fft(&mut self, worker: &Worker)
+    pub fn fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
     {
-        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omega, self.exp);
+        best_fft(kern, &mut self.coeffs, worker, &self.omega, self.exp);
     }
 
-    pub fn ifft(&mut self, worker: &Worker)
+    pub fn ifft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
     {
-        best_fft(&mut self.kern, &mut self.coeffs, worker, &self.omegainv, self.exp);
+        best_fft(kern, &mut self.coeffs, worker, &self.omegainv, self.exp);
 
         worker.scope(self.coeffs.len(), |scope, chunk| {
             let minv = self.minv;
@@ -123,17 +121,17 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         });
     }
 
-    pub fn coset_fft(&mut self, worker: &Worker)
+    pub fn coset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
     {
         self.distribute_powers(worker, E::Fr::multiplicative_generator());
-        self.fft(worker);
+        self.fft(worker, kern);
     }
 
-    pub fn icoset_fft(&mut self, worker: &Worker)
+    pub fn icoset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFT_Kernel>)
     {
         let geninv = self.geninv;
 
-        self.ifft(worker);
+        self.ifft(worker, kern);
         self.distribute_powers(worker, geninv);
     }
 
@@ -272,13 +270,9 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFT_Kernel>, a: &mut 
 {
     let now = Instant::now();
 
-    if is_gpu() {
+    if let Some(ref mut k) = kern {
         println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
-        if let Some(ref mut k) = kern {
-            bls12_gpu_fft(k, a, omega, log_n);
-        } else {
-            panic!("Kernel is not initialized!");
-        }
+        bls12_gpu_fft(k, a, omega, log_n);
     } else {
         println!("\t - Calculating FFT(CPU version) of {} elements...", a.len());
         let log_cpus = worker.log_num_cpus();
@@ -448,10 +442,10 @@ fn polynomial_arith() {
                 let mut a = EvaluationDomain::from_coeffs(a).unwrap();
                 let mut b = EvaluationDomain::from_coeffs(b).unwrap();
 
-                a.fft(&worker);
-                b.fft(&worker);
+                a.fft(&worker, &mut None);
+                b.fft(&worker, &mut None);
                 a.mul_assign(&worker, &b);
-                a.ifft(&worker);
+                a.ifft(&worker, &mut None);
 
                 for (naive, fft) in naive.iter().zip(a.coeffs.iter()) {
                     assert!(naive == fft);
@@ -483,17 +477,17 @@ fn fft_composition() {
             }
 
             let mut domain = EvaluationDomain::from_coeffs(v.clone()).unwrap();
-            domain.ifft(&worker);
-            domain.fft(&worker);
+            domain.ifft(&worker, &mut None);
+            domain.fft(&worker, &mut None);
             assert!(v == domain.coeffs);
-            domain.fft(&worker);
-            domain.ifft(&worker);
+            domain.fft(&worker, &mut None);
+            domain.ifft(&worker, &mut None);
             assert!(v == domain.coeffs);
-            domain.icoset_fft(&worker);
-            domain.coset_fft(&worker);
+            domain.icoset_fft(&worker, &mut None);
+            domain.coset_fft(&worker, &mut None);
             assert!(v == domain.coeffs);
-            domain.coset_fft(&worker);
-            domain.icoset_fft(&worker);
+            domain.coset_fft(&worker, &mut None);
+            domain.icoset_fft(&worker, &mut None);
             assert!(v == domain.coeffs);
         }
     }

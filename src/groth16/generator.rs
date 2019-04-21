@@ -289,7 +289,7 @@ pub fn generate_parameters<E, C>(
     }
 
     // Use inverse FFT to convert powers of tau to Lagrange coefficients
-    powers_of_tau.ifft(&worker);
+    powers_of_tau.ifft(&worker, &mut None);
     let powers_of_tau = powers_of_tau.into_coeffs();
 
     let mut a = vec![E::G1::zero(); assembly.num_inputs + assembly.num_aux];

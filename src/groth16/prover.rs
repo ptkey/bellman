@@ -243,17 +243,27 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
     let vk = params.get_vk(prover.input_assignment.len())?;
 
     let h = {
+        use gpu;
+
+        let mut kern = if gpu::find_gpu() {
+            let mut sz = 1; while sz < prover.a.len() { sz <<= 1; }
+            Some(gpu::initialize(sz as u32))
+        } else {
+            None
+        };
+
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
         let mut c = EvaluationDomain::from_coeffs(prover.c)?;
+
         println!("Run ifft and coset_fft for A, B, and C {{");
         let ifft_timer = Instant::now();
-        a.ifft(&worker);
-        a.coset_fft(&worker);
-        b.ifft(&worker);
-        b.coset_fft(&worker);
-        c.ifft(&worker);
-        c.coset_fft(&worker);
+        a.ifft(&worker, &mut kern);
+        a.coset_fft(&worker, &mut kern);
+        b.ifft(&worker, &mut kern);
+        b.coset_fft(&worker, &mut kern);
+        c.ifft(&worker, &mut kern);
+        c.coset_fft(&worker, &mut kern);
         println!("}} Done!");
         println!("ifft took {} seconds", ifft_timer.elapsed().as_secs());
 
@@ -269,7 +279,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         println!("Divide result by Z(t)... {{");
         let divide_timer = Instant::now();
         a.divide_by_z_on_coset(&worker);
-        a.icoset_fft(&worker);
+        a.icoset_fft(&worker, &mut kern);
         println!("}} Done!");
         println!("Divide took {} seconds", divide_timer.elapsed().as_secs());
 
