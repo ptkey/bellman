@@ -30,7 +30,7 @@ use super::multicore::Worker;
 
 use gpu;
 
-const GPU_FFT_RADIX_DEGREE : u32 = 1; // Radix2
+const GPU_FFT_RADIX_DEGREE : u32 = 2; // Radix2
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,

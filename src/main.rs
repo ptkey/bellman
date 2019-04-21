@@ -3,9 +3,11 @@
 extern crate bellman;
 extern crate pairing;
 extern crate rand;
+extern crate ff;
 use bellman::{Circuit, ConstraintSystem, SynthesisError};
 use bellman::groth16::{Parameters};
-use pairing::{Engine, Field, PrimeField};
+use pairing::{Engine};
+use ff::{Field, PrimeField};
 
 use std::fs::File;
 use std::io::prelude::*;

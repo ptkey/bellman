@@ -3,16 +3,17 @@
 extern crate bellman;
 extern crate pairing;
 extern crate rand;
+extern crate ff;
 
 // For randomness (during paramgen and proof generation)
 use self::rand::{thread_rng, Rng};
 
 // Bring in some tools for using pairing-friendly curves
 use self::pairing::{
-    Engine,
-    Field,
-    PrimeField
+    Engine
 };
+
+use self::ff::{Field,PrimeField};
 
 // We're going to use the BLS12-381 pairing-friendly elliptic curve.
 use self::pairing::bls12_381::{
