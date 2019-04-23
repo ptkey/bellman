@@ -44,7 +44,7 @@ impl FFTKernel {
         let tomega = unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) };
 
         let mut vec = vec![Ulong4::zero(); self.fft_src_buffer.len()];
-        for i in 0..self.fft_src_buffer.len() { vec[i] = ta[i]; }
+        for i in 0..ta.len() { vec[i] = ta[i]; }
 
         self.fft_src_buffer.write(&vec).enq()?;
 
@@ -62,7 +62,7 @@ impl FFTKernel {
         if in_src { self.fft_src_buffer.read(&mut vec).enq()?; }
         else { self.fft_dst_buffer.read(&mut vec).enq()?; }
 
-        for i in 0..a.len() { ta[i] = vec[i]; }
+        for i in 0..ta.len() { ta[i] = vec[i]; }
         Ok(())
     }
 }
