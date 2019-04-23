@@ -52,11 +52,10 @@ __kernel void radix4_fft(__global ulong4* src,
   u2 = mulmod(twiddle, u2);
   u3 = mulmod(twiddle, u3);
 
-  uint256 p0q2 = powmod(omega, (n >> 2) * 0);
-  uint256 p1q2 = powmod(omega, (n >> 2) * 1);
+  uint256 p1q2 = powmod(omega, n >> 2);
 
   uint256 v0 = addmod(u0, u2);
-  uint256 v1 = submod(u0, u2); v1 = mulmod(v1, p0q2);
+  uint256 v1 = submod(u0, u2);
   uint256 v2 = addmod(u1, u3);
   uint256 v3 = submod(u1, u3); v3 = mulmod(v3, p1q2);
 
@@ -103,13 +102,12 @@ __kernel void radix8_fft(__global ulong4* src,
   u6 = mulmod(twiddle, u6);
   u7 = mulmod(twiddle, u7);
 
-  uint256 p0q4 = powmod(omega, (n >> 3) * 0); // or p0q2
-  uint256 p1q4 = powmod(omega, (n >> 3) * 1);
-  uint256 p2q4 = powmod(omega, (n >> 3) * 2); // or p1q2
-  uint256 p3q4 = powmod(omega, (n >> 3) * 3);
+  uint256 p1q4 = powmod(omega, n >> 3);
+  uint256 p2q4 = mulmod(p1q4, p1q4); // or p1q2
+  uint256 p3q4 = mulmod(p2q4, p1q4);
 
   uint256 v0 = addmod(u0, u4);
-  uint256 v4 = submod(u0, u4); v4 = mulmod(v4, p0q4);
+  uint256 v4 = submod(u0, u4);
   uint256 v1 = addmod(u1, u5);
   uint256 v5 = submod(u1, u5); v5 = mulmod(v5, p1q4);
   uint256 v2 = addmod(u2, u6);
@@ -118,11 +116,11 @@ __kernel void radix8_fft(__global ulong4* src,
   uint256 v7 = submod(u3, u7); v7 = mulmod(v7, p3q4);
 
   u0 = addmod(v0, v2);
-  u2 = submod(v0, v2); u2 = mulmod(u2, p0q4);
+  u2 = submod(v0, v2);
   u1 = addmod(v1, v3);
   u3 = submod(v1, v3); u3 = mulmod(u3, p2q4);
   u4 = addmod(v4, v6);
-  u6 = submod(v4, v6); u6 = mulmod(u6, p0q4);
+  u6 = submod(v4, v6);
   u5 = addmod(v5, v7);
   u7 = submod(v5, v7); u7 = mulmod(u7, p2q4);
 
@@ -199,17 +197,16 @@ __kernel void radix16_fft(__global ulong4* src,
   u14 = mulmod(twiddle, u14);
   u15 = mulmod(twiddle, u15);
 
-  uint256 p0q8 = powmod(omega, (n >> 4) * 0); // or p0q2 or p0q4
-  uint256 p1q8 = powmod(omega, (n >> 4) * 1);
-  uint256 p2q8 = powmod(omega, (n >> 4) * 2); // or p1q4
-  uint256 p3q8 = powmod(omega, (n >> 4) * 3);
-  uint256 p4q8 = powmod(omega, (n >> 4) * 4); // or p1q2 or p2q4
-  uint256 p5q8 = powmod(omega, (n >> 4) * 5);
-  uint256 p6q8 = powmod(omega, (n >> 4) * 6); // or p3q4
-  uint256 p7q8 = powmod(omega, (n >> 4) * 7);
+  uint256 p1q8 = powmod(omega, n >> 4);
+  uint256 p2q8 = mulmod(p1q8, p1q8); // or p1q4
+  uint256 p3q8 = mulmod(p2q8, p1q8);
+  uint256 p4q8 = mulmod(p3q8, p1q8); // or p1q2 or p2q4
+  uint256 p5q8 = mulmod(p4q8, p1q8);
+  uint256 p6q8 = mulmod(p5q8, p1q8); // or p3q4
+  uint256 p7q8 = mulmod(p6q8, p1q8);
 
   uint256 v0 = addmod(u0, u8);
-  uint256 v8 = submod(u0, u8); v8 = mulmod(v8, p0q8);
+  uint256 v8 = submod(u0, u8);
   uint256 v1 = addmod(u1, u9);
   uint256 v9 = submod(u1, u9); v9 = mulmod(v9, p1q8);
   uint256 v2 = addmod(u2, u10);
@@ -226,7 +223,7 @@ __kernel void radix16_fft(__global ulong4* src,
   uint256 v15 = submod(u7, u15); v15 = mulmod(v15, p7q8);
 
   u0 = addmod(v0, v4);
-  u4 = submod(v0, v4); u4 = mulmod(u4, p0q8);
+  u4 = submod(v0, v4);
   u1 = addmod(v1, v5);
   u5 = submod(v1, v5); u5 = mulmod(u5, p2q8);
   u2 = addmod(v2, v6);
@@ -234,7 +231,7 @@ __kernel void radix16_fft(__global ulong4* src,
   u3 = addmod(v3, v7);
   u7 = submod(v3, v7); u7 = mulmod(u7, p6q8);
   u8 = addmod(v8, v12);
-  u12 = submod(v8, v12); u12 = mulmod(u12, p0q8);
+  u12 = submod(v8, v12);
   u9 = addmod(v9, v13);
   u13 = submod(v9, v13); u13 = mulmod(u13, p2q8);
   u10 = addmod(v10, v14);
@@ -243,19 +240,19 @@ __kernel void radix16_fft(__global ulong4* src,
   u15 = submod(v11, v15); u15 = mulmod(u15, p6q8);
 
   v0 = addmod(u0, u2);
-  v2 = submod(u0, u2); v2 = mulmod(v2, p0q8);
+  v2 = submod(u0, u2);
   v1 = addmod(u1, u3);
   v3 = submod(u1, u3); v3 = mulmod(v3, p4q8);
   v4 = addmod(u4, u6);
-  v6 = submod(u4, u6); v6 = mulmod(v6, p0q8);
+  v6 = submod(u4, u6);
   v5 = addmod(u5, u7);
   v7 = submod(u5, u7); v7 = mulmod(v7, p4q8);
   v8 = addmod(u8, u10);
-  v10 = submod(u8, u10); v10 = mulmod(v10, p0q8);
+  v10 = submod(u8, u10);
   v9 = addmod(u9, u11);
   v11 = submod(u9, u11); v11 = mulmod(v11, p4q8);
   v12 = addmod(u12, u14);
-  v14 = submod(u12, u14); v14 = mulmod(v14, p0q8);
+  v14 = submod(u12, u14);
   v13 = addmod(u13, u15);
   v15 = submod(u13, u15); v15 = mulmod(v15, p4q8);
 
