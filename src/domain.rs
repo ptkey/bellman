@@ -526,3 +526,29 @@ fn parallel_fft_consistency() {
 
     test_consistency::<Bls12, _>(rng);
 }
+
+#[test]
+fn gpu_fft_consistency() {
+    use pairing::bls12_381::{Bls12, Fr};
+    use rand::{self, Rand};
+    let rng = &mut rand::thread_rng();
+
+    let mut kern = gpu::initialize(1024);
+
+    for _ in 0..5 {
+        for log_d in 0..10 {
+
+
+            let d = 1 << log_d;
+
+            let v1 = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
+            let mut v1 = EvaluationDomain::from_coeffs(v1).unwrap();
+            let mut v2 = EvaluationDomain::from_coeffs(v1.coeffs.clone()).unwrap();
+
+            bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d);
+            serial_fft(&mut v2.coeffs, &v2.omega, log_d);
+
+            assert!(v1.coeffs == v2.coeffs);
+        }
+    }
+}
