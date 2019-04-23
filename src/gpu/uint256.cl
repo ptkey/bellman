@@ -10,23 +10,21 @@ typedef ulong uint64;
 typedef struct { uint32 val[8]; } uint256;
 
 // Field Modulus
-#define P ((uint256){0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,0x09a1d805,0x3339d808,0x299d7d48,0x73eda753})
+#define P ((uint256){{0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,0x09a1d805,0x3339d808,0x299d7d48,0x73eda753}})
 
 // Montgomery form of 1 = (1 * R mod P)
-#define ONE ((uint256){0xfffffffe,0x00000001,0x00034802,0x5884b7fa,0xecbc4ff5,0x998c4fef,0xacc5056f,0x1824b159})
+#define ONE ((uint256){{0xfffffffe,0x00000001,0x00034802,0x5884b7fa,0xecbc4ff5,0x998c4fef,0xacc5056f,0x1824b159}})
 
 // -(1/P.val[0]) mod B
 #define INV ((uint32)4294967295)
 
 // Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
-void add_digit(uint32 *res, uint32 i, uint32 num) {
-  while(true) {
-    uint32 old = res[i];
-    res[i] += num;
-    if(res[i] < old) {
-      num = 1;
-      i++;
-    } else break;
+void add_digit(uint32 *res, uint32 num) {
+  uint32 old = *res;
+  *res += num;
+  if(*res < old) {
+    res++;
+    while(++(*(res++)) == 0);
   }
 }
 
@@ -47,7 +45,7 @@ uint256 add(uint256 a, uint256 b) {
   for(int i = 0; i < 8; i++) {
     uint32 old = a.val[i];
     a.val[i] += b.val[i] + carry;
-    carry = old > a.val[i];
+    carry = carry ? old >= a.val[i] : old > a.val[i];
   }
   return a;
 }
@@ -58,7 +56,7 @@ uint256 sub(uint256 a, uint256 b) {
   for(int i = 0; i < 8; i++) {
     uint32 old = a.val[i];
     a.val[i] -= b.val[i] + borrow;
-    borrow = old < a.val[i];
+    borrow = borrow ? old <= a.val[i] : old < a.val[i];
   }
   return a;
 }
@@ -69,27 +67,26 @@ uint256 mulmod(uint256 a, uint256 b) {
 
   // Long multiplication
   uint32 res[16] = {0};
-  for(int i = 0; i < 8; i++) {
-    for(int j = 0; j < 8; j++) {
-      uint64 total = (uint64)a.val[i] * (uint64)b.val[j];
-      uint32 lo = total & 0xffffffff;
-      uint32 hi = total >> 32;
-      add_digit(res, i + j, lo);
-      add_digit(res, i + j + 1, hi);
+  for(uint32 i = 0; i < 8; i++) {
+    uint32 carry = 0;
+    for(uint32 j = 0; j < 8; j++) {
+      uint64 product = (uint64)a.val[i] * b.val[j] + res[i + j] + carry;
+      res[i + j] = product & 0xffffffff;
+      carry = product >> 32;
     }
+    res[i + 8] = carry;
   }
 
   // Montgomery reduction
-  for (int i = 0; i < 8; i++)
-  {
+  for(uint32 i = 0; i < 8; i++) {
     uint64 u = ((uint64)INV * (uint64)res[i]) & 0xffffffff;
-    for(int j = 0; j < 8; j++) {
-      uint64 total = u * (uint64)p.val[j];
-      uint32 lo = total & 0xffffffff;
-      uint32 hi = total >> 32;
-      add_digit(res, i + j, lo);
-      add_digit(res, i + j + 1, hi);
+    uint32 carry = 0;
+    for(uint32 j = 0; j < 8; j++) {
+      uint64 product = u * p.val[j] + res[i + j] + carry;
+      res[i + j] = product & 0xffffffff;
+      carry = product >> 32;
     }
+    add_digit(res + i + 8, carry);
   }
 
   // Divide by R
@@ -131,4 +128,25 @@ uint256 powmod(uint256 base, uint32 exponent) {
     base = mulmod(base, base);
   }
   return res;
+}
+
+uint256 powmodcached(__global uint256 *bases, uint32 exponent) {
+  uint256 res = ONE;
+  uint32 i = 0;
+  while(exponent > 0) {
+    if (exponent & 1)
+      res = mulmod(res, bases[i]);
+    exponent = exponent >> 1;
+    i++;
+  }
+  return res;
+}
+
+uint32 bitreverse(uint32 n, uint32 bits) {
+  uint32 r = 0;
+  for(int i = 0; i < bits; i++) {
+    r = (r << 1) | (n & 1);
+    n >>= 1;
+  }
+  return r;
 }

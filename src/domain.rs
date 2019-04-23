@@ -10,9 +10,6 @@
 //! This allows us to perform polynomial operations in O(n)
 //! by performing an O(n log n) FFT over such a domain.
 
-// Timing deps
-use std::time::Instant;
-
 use pairing::{
     Engine,
     CurveProjective,
@@ -266,13 +263,9 @@ impl<E: Engine> Group<E> for Scalar<E> {
 
 fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
-    let now = Instant::now();
-
     if let Some(ref mut k) = kern {
-        println!("\t - Calculating FFT(GPU version) of {} elements...", a.len());
-        bls12_gpu_fft(k, a, omega, log_n);
+        bls12_gpu_fft(k, a, omega, log_n).expect("GPU FFT failed!");
     } else {
-        println!("\t - Calculating FFT(CPU version) of {} elements...", a.len());
         let log_cpus = worker.log_num_cpus();
         if log_n <= log_cpus {
             serial_fft(a, omega, log_n);
@@ -280,25 +273,20 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel>, a: &mut [
             parallel_fft(a, worker, omega, log_n, log_cpus);
         }
     }
-    println!("\t - Done! FFT round took {} seconds, {} milliseconds",
-        now.elapsed().as_secs(),
-        (now.elapsed().as_secs() * 1_000) + (now.elapsed().subsec_nanos() / 1_000_000) as u64);
 }
 
 use pairing::bls12_381::Fr;
 
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32)
+pub fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32) -> ocl::Result<()>
 {
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    // let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
-    // println!("index 123 of input array before: {:?}", t);
-    kern.radix_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    // println!("index 123 of input array after: {:?}", t);
+    kern.radix_fft(ta, tomega, log_n)?;
+    Ok(())
 }
 
-fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
+pub fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     fn bitreverse(mut n: u32, l: u32) -> u32 {
         let mut r = 0;
@@ -359,9 +347,6 @@ fn parallel_fft<E: Engine, T: Group<E>>(
     let mut tmp = vec![vec![T::group_zero(); 1 << log_new_n]; num_cpus];
     let new_omega = omega.pow(&[num_cpus as u64]);
 
-    // let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
-    // println!("a element before: {:?}", ta[123]);
-
     worker.scope(0, |scope, _| {
         let a = &*a;
         for (j, tmp) in tmp.iter_mut().enumerate() {
@@ -403,8 +388,6 @@ fn parallel_fft<E: Engine, T: Group<E>>(
             });
         }
     }).unwrap();
-    // let ta2 = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(&mut tmp[0]) };
-    // println!("a element after: {:?}", ta2[123]);
 }
 
 // Test multiplying various (low degree) polynomials together and
@@ -525,4 +508,73 @@ fn parallel_fft_consistency() {
     let rng = &mut rand::thread_rng();
 
     test_consistency::<Bls12, _>(rng);
+}
+
+pub fn gpu_fft_supported(log_d: u32) -> ocl::Result<gpu::FFTKernel> {
+    use std::time::Instant;
+    use pairing::bls12_381::{Bls12};
+    use rand::{Rand};
+    let rng = &mut rand::thread_rng();
+
+    let worker = Worker::new();
+    let log_cpus = worker.log_num_cpus();
+
+    let mut kern = gpu::initialize(1 << log_d)?;
+
+    let log_d_test = 20;
+    let d_test = 1 << log_d_test;
+
+    let elems = (0..d_test).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
+    let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+    let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+
+    let mut now = Instant::now();
+    bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d_test)?;
+    let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
+
+    now = Instant::now();
+    if log_d_test <= log_cpus { serial_fft(&mut v2.coeffs, &v2.omega, log_d_test); }
+    else { parallel_fft(&mut v2.coeffs, &worker, &v2.omega, log_d_test, log_cpus); }
+    let cpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
+
+    if v1.coeffs == v2.coeffs && gpu_dur < cpu_dur { Ok(kern) }
+    else { Err(ocl::Error::from("GPU FFT is not working well on your machine!")) }
+}
+
+//#[test]
+pub fn gpu_fft_consistency() {
+    use std::time::Instant;
+    use pairing::bls12_381::{Bls12};
+    use rand::{Rand};
+    let rng = &mut rand::thread_rng();
+
+    let worker = Worker::new();
+    let log_cpus = worker.log_num_cpus();
+    let mut kern = gpu::initialize(1 << 24).expect("Cannot initialize kernel!");
+
+    for log_d in 1..25 {
+        let d = 1 << log_d;
+
+        let elems = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
+        let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+        let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+
+        println!("Testing FFT for {} elements...", d);
+
+        let mut now = Instant::now();
+        bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d).expect("GPU FFT failed!");
+        let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
+        println!("GPU took {}ms.", gpu_dur);
+
+        now = Instant::now();
+        if log_d <= log_cpus { serial_fft(&mut v2.coeffs, &v2.omega, log_d); }
+        else { parallel_fft(&mut v2.coeffs, &worker, &v2.omega, log_d, log_cpus); }
+        let cpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
+        println!("CPU ({} cores) took {}ms.", 1 << log_cpus, cpu_dur);
+
+        println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
+
+        assert!(v1.coeffs == v2.coeffs);
+        println!("============================");
+    }
 }

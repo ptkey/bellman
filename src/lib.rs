@@ -7,6 +7,7 @@ extern crate bit_vec;
 extern crate crossbeam;
 extern crate byteorder;
 extern crate ff;
+extern crate ocl;
 
 pub mod multicore;
 mod multiexp;
