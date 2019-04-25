@@ -5,7 +5,7 @@ use std::cmp;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
-const MAX_RADIX_DEGREE : u32 = 4; // Radix16
+const MAX_RADIX_DEGREE : u32 = 1; // Radix16
 
 pub struct FFTKernel {
     proque: ProQue,
@@ -58,6 +58,36 @@ impl FFTKernel {
             lgp += deg;
             in_src = !in_src;
         }
+
+        if in_src { self.fft_src_buffer.read(&mut vec).enq()?; }
+        else { self.fft_dst_buffer.read(&mut vec).enq()?; }
+
+        for i in 0..ta.len() { ta[i] = vec[i]; }
+        Ok(())
+    }
+
+    pub fn shared_mem_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
+        let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
+        let tomega = unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) };
+
+        let mut vec = vec![Ulong4::zero(); self.fft_src_buffer.len()];
+        for i in 0..ta.len() { vec[i] = ta[i]; }
+
+        self.fft_src_buffer.write(&vec).enq()?;
+
+        let mut in_src = true;
+        let mut lgp = 0u32;
+        let n = 1 << lgn;
+        let kernel_name = format!("radix_r_fft");
+        let kernel = self.proque.kernel_builder(kernel_name.clone())
+            .global_work_size(lgn)
+            .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
+            .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
+            .arg(a.len() as u32)
+            .arg(tomega)
+            .arg(lgp)
+            .build()?;
+        unsafe { kernel.enq()?; }
 
         if in_src { self.fft_src_buffer.read(&mut vec).enq()?; }
         else { self.fft_dst_buffer.read(&mut vec).enq()?; }
