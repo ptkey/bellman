@@ -279,7 +279,7 @@ __kernel void radix_r_fft(__global ulong4* src,
                   uint n,
                   ulong4 om,
                   uint lgp,
-                  __global ulong4* tmp) {
+                  __local ulong4* tmp) {
 
   __global uint256 *x = src;
   __global uint256 *y = dst;
@@ -311,10 +311,10 @@ __kernel void radix_r_fft(__global ulong4* src,
     a = u[i0];
     b = u[i1];
     u[i0] = addmod(a, b);
-    u[i1] = mulmod(omega, submod(a, b));
+    u[i1] = mulmod(sn, submod(a, b));
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 
-  y[j+i*p] = u[revbits(2*r,i)];
-  y[j+(i+r)*p] = u[revbits(2*r, i+r)];
+  y[j+i*p] = u[bitreverse(2*r,i)];
+  y[j+(i+r)*p] = u[bitreverse(2*r, i+r)];
 }

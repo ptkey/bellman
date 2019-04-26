@@ -75,6 +75,8 @@ impl FFTKernel {
 
         self.fft_src_buffer.write(&vec).enq()?;
 
+        let local_mem = self.proque.create_buffer::<Ulong4>().expect("Cannot allocate buffer!");
+
         let mut in_src = true;
         let mut lgp = 0u32;
         let n = 1 << lgn;
@@ -86,6 +88,7 @@ impl FFTKernel {
             .arg(a.len() as u32)
             .arg(tomega)
             .arg(lgp)
+            .arg(local_mem)
             .build()?;
         unsafe { kernel.enq()?; }
 
