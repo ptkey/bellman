@@ -60,7 +60,7 @@ __kernel void radix_fft(__global ulong4* src,
   }
 }
 
-/*__kernel void radix_r_fft(__global ulong4* src,
+__kernel void radix_r_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
                   ulong4 om,
@@ -82,9 +82,9 @@ __kernel void radix_fft(__global ulong4* src,
 
   uint256 twiddle = powmod(omega, (n >> lgp >> r) * k);
 
-  uint256 sn = powmod(i*twiddle, (n >> lgp >> r) * k);
+  uint256 sn = powmod(mulmod(twiddle, *(uint256 *)i), (n >> lgp >> r) * k);
   u[i] = mulmod(sn, x[get_group_id(0) + i * get_num_groups(0)]);
-  sn = powmod((i+r)*twiddle, (n >> lgp >> r) * k);
+  sn = powmod(mulmod(*(uint256 *)(i+r), twiddle), (n >> lgp >> r) * k);
   u[i+r] = mulmod(sn, x[get_group_id(0) + (i+r) * get_num_groups(0)]);
 
   uint256 a,b;
@@ -103,4 +103,4 @@ __kernel void radix_fft(__global ulong4* src,
 
   y[j+i*p] = u[bitreverse(2*r,i)];
   y[j+(i+r)*p] = u[bitreverse(2*r, i+r)];
-}*/
+}
