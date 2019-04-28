@@ -5,7 +5,7 @@ use std::cmp;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
-const MAX_RADIX_DEGREE : u32 = 1; // Radix16
+const MAX_RADIX_DEGREE : u32 = 6; // Radix64
 
 pub struct FFTKernel {
     proque: ProQue,
@@ -25,14 +25,14 @@ impl FFTKernel {
 
     fn radix_fft_round(&mut self, a: &mut [Ulong4], omega: &Ulong4, lgn: u32, lgp: u32, deg: u32, in_src: bool) -> ocl::Result<()> {
         let n = 1 << lgn;
-        let kernel_name = format!("radix{}_fft", (1 << deg));
-        let kernel = self.proque.kernel_builder(kernel_name.clone())
+        let kernel = self.proque.kernel_builder("radix_fft")
             .global_work_size([n >> deg])
             .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
             .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
             .arg(a.len() as u32)
             .arg(omega)
             .arg(lgp)
+            .arg(deg)
             .build()?;
         unsafe { kernel.enq()?; }
         Ok(())
