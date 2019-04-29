@@ -5,7 +5,7 @@ use std::cmp;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
-const MAX_RADIX_DEGREE : u32 = 6; // Radix64
+const MAX_RADIX_DEGREE : u32 = 8; // Radix256
 
 pub struct FFTKernel {
     proque: ProQue,
@@ -130,10 +130,10 @@ impl FFTKernel {
               .arg_local::<Ulong4>(local_work_size)
               .build()?;
           unsafe { kernel.enq()?; }
-          in_src = !in_src;          
+          in_src = !in_src;
 
           if i >= p {break}
-          i = i * local_work_size*2;   
+          i = i * local_work_size*2;
         }
 
         if in_src { self.fft_src_buffer.read(&mut vec).enq()?; }

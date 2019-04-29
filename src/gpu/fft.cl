@@ -1,4 +1,4 @@
-#define MAX_RADIX_DEGREE (6)
+#define MAX_RADIX_DEGREE (8)
 
 __kernel void radix_fft(__global ulong4* src,
                         __global ulong4* dst,
@@ -18,9 +18,9 @@ __kernel void radix_fft(__global ulong4* src,
   x += index;
   y += ((index - k) << deg) + k;
 
-  __local uint256 uu[1 << MAX_RADIX_DEGREE]; __local uint256 *u = uu;
-  __local uint256 vv[1 << MAX_RADIX_DEGREE]; __local uint256 *v = vv;
-  __local uint256 pq[1 << MAX_RADIX_DEGREE >> 1];
+  uint256 uu[1<<MAX_RADIX_DEGREE]; uint256 *u = uu;
+  uint256 vv[1<<MAX_RADIX_DEGREE]; uint256 *v = vv;
+  uint256 pq[1<<MAX_RADIX_DEGREE>>1];
 
   uint32 count = 1 << deg; // 2^deg
   uint32 counth = count >> 1; // Half of count
@@ -50,7 +50,7 @@ __kernel void radix_fft(__global ulong4* src,
           v[b] = mulmod(v[b], pq[i * lg]);
       }
     }
-    __local uint256 *tmp = u; u = v; v = tmp; // Now result is in v, swap!
+    uint256 *tmp = u; u = v; v = tmp; // Now result is in v, swap!
   }
 
   for(uint32 i = 0; i < counth; i++) {
@@ -78,9 +78,9 @@ __kernel void radix_ifft(__global ulong4* src,
   x += index;
   y += ((index - k) << deg) + k;
 
-  __local uint256 uu[1 << MAX_RADIX_DEGREE]; __local uint256 *u = uu;
-  __local uint256 vv[1 << MAX_RADIX_DEGREE]; __local uint256 *v = vv;
-  __local uint256 pq[1 << MAX_RADIX_DEGREE >> 1];
+  uint256 uu[1 << MAX_RADIX_DEGREE]; uint256 *u = uu;
+  uint256 vv[1 << MAX_RADIX_DEGREE]; uint256 *v = vv;
+  uint256 pq[1 << MAX_RADIX_DEGREE >> 1];
 
   uint32 count = 1 << deg; // 2^deg
   uint32 counth = count >> 1; // Half of count
@@ -110,7 +110,7 @@ __kernel void radix_ifft(__global ulong4* src,
           v[b] = mulmod(v[b], pq[i * lg]);
       }
     }
-    __local uint256 *tmp = u; u = v; v = tmp; // Now result is in v, swap!
+    uint256 *tmp = u; u = v; v = tmp; // Now result is in v, swap!
   }
 
   for(uint32 i = 0; i < counth; i++) {
