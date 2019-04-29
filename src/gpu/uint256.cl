@@ -10,10 +10,10 @@ typedef ulong uint64;
 typedef struct { uint32 val[8]; } uint256;
 
 // Field Modulus
-#define P ((uint256){0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,0x09a1d805,0x3339d808,0x299d7d48,0x73eda753})
+#define P ((uint256){{0x00000001,0xffffffff,0xfffe5bfe,0x53bda402,0x09a1d805,0x3339d808,0x299d7d48,0x73eda753}})
 
 // Montgomery form of 1 = (1 * R mod P)
-#define ONE ((uint256){0xfffffffe,0x00000001,0x00034802,0x5884b7fa,0xecbc4ff5,0x998c4fef,0xacc5056f,0x1824b159})
+#define ONE ((uint256){{0xfffffffe,0x00000001,0x00034802,0x5884b7fa,0xecbc4ff5,0x998c4fef,0xacc5056f,0x1824b159}})
 
 // -(1/P.val[0]) mod B
 #define INV ((uint32)4294967295)
@@ -135,7 +135,7 @@ uint256 powmod(uint256 base, uint32 exponent) {
 
 // Bit reversal
 uint256 uint256_bitreverse(uint256 n, uint32 bits) {
-  uint256 r = {0,0,0,0,0,0,0,0};
+  uint256 r = {{0,0,0,0,0,0,0,0}};
   for(uint32 j=0; j<7; j++) {
     for(uint32 i = 0; i < bits; i++) {
       r.val[j] = (r.val[j] << 1) | (n.val[j] & 1);
