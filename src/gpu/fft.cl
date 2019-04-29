@@ -115,8 +115,8 @@ __kernel void radix_ifft(__global ulong4* src,
 
   for(uint32 i = 0; i < counth; i++) {
     uint32 rev = bitreverse(i, deg);
-    y[i*p] = addmod(u[rev], u[rev+1]);
-    y[(i+counth)*p] = submod(u[rev], u[rev+1]);
+    y[i*p] = submod(u[rev], u[rev+1]);
+    y[(i+counth)*p] = addmod(u[rev], u[rev+1]);
   }
 }
 
@@ -124,7 +124,7 @@ __kernel void radix_r_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
                   ulong4 om,
-                  uint lgp,
+                  uint p,
                   __local ulong4* tmp) {
 
   __global uint256 *x = src;
@@ -132,7 +132,6 @@ __kernel void radix_r_fft(__global ulong4* src,
   __local uint256 *u = tmp;
 
   uint256 omega = *(uint256*)&om;
-  uint32 p = 1 << lgp;
 
   uint32 r = get_local_size(0);
   uint32 i = get_local_id(0);
@@ -140,11 +139,11 @@ __kernel void radix_r_fft(__global ulong4* src,
   uint32 k = get_group_id(0)&(p-1);
   uint32 j = (get_group_id(0)-k)*2*r+k;
 
-  uint256 twiddle = powmod(omega, (n >> lgp >> r) * k);
+  uint256 twiddle = powmod(omega, (n >> p >> r) * k);
 
-  uint256 sn = powmod(mulmod(twiddle, *(uint256 *)i), (n >> lgp >> r) * k);
+  uint256 sn = powmod(mulmod(twiddle, *(uint256 *)i), (n >> p >> r) * k);
   u[i] = mulmod(sn, x[get_group_id(0) + i * get_num_groups(0)]);
-  sn = powmod(mulmod(*(uint256 *)(i+r), twiddle), (n >> lgp >> r) * k);
+  sn = powmod(mulmod(*(uint256 *)(i+r), twiddle), (n >> p >> r) * k);
   u[i+r] = mulmod(sn, x[get_group_id(0) + (i+r) * get_num_groups(0)]);
 
   uint256 a,b;
@@ -153,7 +152,7 @@ __kernel void radix_r_fft(__global ulong4* src,
     uint32 di = i&(bit-1);
     uint32 i0 = (i<<1)-di;
     uint32 i1 = i0 + bit;
-    sn = powmod(omega, (n >> lgp >> bit) * (di*k));
+    sn = powmod(omega, (n >> p >> bit) * (di*k));
     a = u[i0];
     b = u[i1];
     u[i0] = addmod(a, b);
