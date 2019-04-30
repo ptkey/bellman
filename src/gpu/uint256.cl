@@ -72,7 +72,7 @@ uint256 mulmod(uint256 a, uint256 b) {
   for(int i = 0; i < 8; i++) {
     for(int j = 0; j < 8; j++) {
       uint64 total = (uint64)a.val[i] * (uint64)b.val[j];
-      add_digit((uint64*)((char*)res + ((i + j) << 2)), total);
+      add_digit((uint64*)((uint32*)res + i + j), total);
     }
   }
 
@@ -82,7 +82,7 @@ uint256 mulmod(uint256 a, uint256 b) {
     uint64 u = ((uint64)INV * (uint64)res[i]) & 0xffffffff;
     for(int j = 0; j < 8; j++) {
       uint64 total = u * (uint64)p.val[j];
-      add_digit((uint64*)((char*)res + ((i + j) << 2)), total);
+      add_digit((uint64*)((uint32*)res + i + j), total);
     }
   }
 
