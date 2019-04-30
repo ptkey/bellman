@@ -127,18 +127,6 @@ uint256 powmod(uint256 base, uint32 exponent) {
   return res;
 }
 
-// Bit reversal
-uint256 uint256_bitreverse(uint256 n, uint32 bits) {
-  uint256 r = {{0,0,0,0,0,0,0,0}};
-  for(uint32 j=0; j<7; j++) {
-    for(uint32 i = 0; i < bits; i++) {
-      r.val[j] = (r.val[j] << 1) | (n.val[j] & 1);
-      n.val[j] >>= 1;
-    }
-  }
-  return r;
-}
-
 uint32 bitreverse(uint32 n, uint32 bits) {
   uint32 r = 0;
   for(int i = 0; i < bits; i++) {
