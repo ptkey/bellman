@@ -152,11 +152,11 @@ __kernel void radix_r_fft(__global ulong4* src,
     uint32 di = i&(bit-1);
     uint32 i0 = (i<<1)-di;
     uint32 i1 = i0 + bit;
-    uint256 twiddleu = powmod(omega, (n >> p >> bit) * (di*k));
+    uint256 twiddle3 = powmod(omega, (n >> p >> bit) * (di*k));
     a = u[i0];
     b = u[i1];
     u[i0] = addmod(a, b);
-    u[i1] = mulmod(sn, submod(a, b));
+    u[i1] = mulmod(twiddle3, submod(a, b));
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 
