@@ -19,13 +19,13 @@ typedef struct { uint32 val[8]; } uint256;
 #define INV ((uint32)4294967295)
 
 // Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
-void add_digit(uint32 *res, uint32 i, uint32 num) {
+void add_digit(uint64 *res, uint64 num) {
   while(true) {
-    uint32 old = res[i];
-    res[i] += num;
-    if(res[i] < old) {
+    uint64 old = *res;
+    *res += num;
+    if(*res < old) {
       num = 1;
-      i++;
+      res++;
     } else break;
   }
 }
@@ -72,10 +72,7 @@ uint256 mulmod(uint256 a, uint256 b) {
   for(int i = 0; i < 8; i++) {
     for(int j = 0; j < 8; j++) {
       uint64 total = (uint64)a.val[i] * (uint64)b.val[j];
-      uint32 lo = total & 0xffffffff;
-      uint32 hi = total >> 32;
-      add_digit(res, i + j, lo);
-      add_digit(res, i + j + 1, hi);
+      add_digit((uint64*)((char*)res + ((i + j) << 2)), total);
     }
   }
 
@@ -85,10 +82,7 @@ uint256 mulmod(uint256 a, uint256 b) {
     uint64 u = ((uint64)INV * (uint64)res[i]) & 0xffffffff;
     for(int j = 0; j < 8; j++) {
       uint64 total = u * (uint64)p.val[j];
-      uint32 lo = total & 0xffffffff;
-      uint32 hi = total >> 32;
-      add_digit(res, i + j, lo);
-      add_digit(res, i + j + 1, hi);
+      add_digit((uint64*)((char*)res + ((i + j) << 2)), total);
     }
   }
 
