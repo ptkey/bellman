@@ -142,9 +142,9 @@ __kernel void radix_r_fft(__global ulong4* src,
   uint256 twiddle = powmod(omega, (n >> p >> r) * k);
 
   uint256 twiddle2 = mulmod(twiddle, *(uint256 *)i);
-  u[i] = mulmod(twiddle2, x[get_group_id(0) + i * get_num_groups(0)]);
+  u[i] = mulmod(twiddle2, x[get_global_id(0)]);
   twiddle2 = mulmod(*(uint256 *)(i+r), twiddle);
-  u[i+r] = mulmod(twiddle2, x[get_group_id(0) + (i+r) * get_num_groups(0)]);
+  u[i+r] = mulmod(twiddle2, x[get_global_id(0)+get_global_size(0)]);
 
   uint256 a,b;
 

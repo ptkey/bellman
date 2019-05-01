@@ -5,7 +5,7 @@ use std::cmp;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
-const MAX_RADIX_DEGREE : u32 = 8; // Radix256
+const MAX_RADIX_DEGREE : u32 = 7; // Radix256
 
 pub struct FFTKernel {
     proque: ProQue,
@@ -115,10 +115,10 @@ impl FFTKernel {
         loop {
           while ( local_work_size != 1 && i*local_work_size*2 > p ) {
             local_work_size >>= 1;
-            // println!("local_work_size[0]: {}", local_work_size);
+            println!("local_work_size[0]: {}", local_work_size);
           }
-          // println!("i: {}", i);
-          println!("local_work_size[0]: {}", local_work_size);
+          println!("i: {}", i);
+          //println!("local_work_size[0]: {}", local_work_size);
           let kernel = self.proque.kernel_builder(kernel_name.clone())
               .global_work_size(p)
               .local_work_size(local_work_size)
