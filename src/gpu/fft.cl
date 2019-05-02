@@ -120,6 +120,19 @@ __kernel void radix_ifft(__global ulong4* src,
   }
 }
 
+
+uint32 revbits(uint32 p, uint32 ii)
+{
+  uint32 reverse_num = 0;
+  uint32 l = (int)log2((float)p);
+  for(uint32 i = 0; i < l; ++i) {
+    uint32 temp = (ii & (1 << i));
+    if(temp)
+      reverse_num |= (1 << ((l - 1) - i));
+  }
+  return reverse_num;
+}
+
 __kernel void radix_r_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
@@ -130,36 +143,33 @@ __kernel void radix_r_fft(__global ulong4* src,
   __global uint256 *x = src;
   __global uint256 *y = dst;
   __local uint256 *u = tmp;
-
   uint256 omega = *(uint256*)&om;
 
+  uint32 glob = get_global_id(0);
+  uint32 numg = get_num_groups(0);
   uint32 r = get_local_size(0);
   uint32 i = get_local_id(0);
-  // uint32 k = i & (p - 1);
-  uint32 k = get_group_id(0)&(p-1);
-  uint32 j = (get_group_id(0)-k)*2*r+k;
+  uint32 k = get_group_id(0) & (p-1);
+  uint32 j = (get_group_id(0)-k) * 2 * r + k;
 
-  uint256 twiddle = powmod(omega, (n >> p >> r) * k);
-
-  uint256 twiddle2 = mulmod(twiddle, *(uint256 *)i);
-  u[i] = mulmod(twiddle2, x[get_global_id(0)]);
-  twiddle2 = mulmod(*(uint256 *)(i+r), twiddle);
-  u[i+r] = mulmod(twiddle2, x[get_global_id(0)+get_global_size(0)]);
+  uint256 twiddle = powmod(omega, (n / p >> r) * k);
+  u[i] = mulmod(powmod(twiddle, i), x[glob + i * numg]);
+  u[i+r] = mulmod(powmod(twiddle, i + r), x[glob + (i + r) * numg]);
 
   uint256 a,b;
 
   for(uint32 bit = r; bit > 0; bit >>= 1) {
-    uint32 di = i&(bit-1);
-    uint32 i0 = (i<<1)-di;
+    uint32 di = i & (bit - 1);
+    uint32 i0 = (i <<1 ) - di;
     uint32 i1 = i0 + bit;
-    uint256 twiddle3 = powmod(omega, (n >> p >> bit) * (di*k));
+    uint256 w = powmod(omega, (n >> r) / bit * di);
     a = u[i0];
     b = u[i1];
     u[i0] = addmod(a, b);
-    u[i1] = mulmod(twiddle3, submod(a, b));
+    u[i1] = mulmod(w, submod(a, b));
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 
-  y[j+i*p] = u[bitreverse(2*r,i)];
-  y[j+(i+r)*p] = u[bitreverse(2*r, i+r)];
+  y[j+i*p] = u[revbits(2*r,i)];
+  y[j+(i+r)*p] = u[revbits(2*r, i+r)];
 }
