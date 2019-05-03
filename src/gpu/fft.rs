@@ -107,33 +107,25 @@ impl FFTKernel {
 
         self.fft_src_buffer.write(&vec).enq()?;
 
-        //let local_mem = self.proque.create_buffer::<Ulong4>().expect("Cannot allocate buffer!");
-        let mut local_work_size = 256;
-        let p = n/2;
-        let mut i = 1;
+        let mut r = 8;
+        let mut p = 1u32;
 
-        loop {
-          while ( local_work_size != 1 && i*local_work_size*2 > p ) {
-            local_work_size >>= 1;
-            println!("local_work_size[0]: {}", local_work_size);
-          }
-          println!("i: {}", i);
-          //println!("local_work_size[0]: {}", local_work_size);
-          let kernel = self.proque.kernel_builder(kernel_name.clone())
-              .global_work_size(p)
-              .local_work_size(local_work_size)
-              .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
-              .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
-              .arg(a.len() as u32)
-              .arg(tomega)
-              .arg(i as u32)
-              .arg_local::<Ulong4>(local_work_size)
-              .build()?;
-          unsafe { kernel.enq()?; }
-          in_src = !in_src;
-
-          if i >= p {break}
-          i = i * local_work_size*2;
+        while p < n {
+            while (p * r * 2 > n ) { r >>= 1; }
+            //println!("p: {}, r: {}", p, r);
+            let kernel = self.proque.kernel_builder(kernel_name.clone())
+                .global_work_size(n / 2)
+                .local_work_size(r)
+                .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
+                .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
+                .arg(a.len() as u32)
+                .arg(tomega)
+                .arg(p)
+                .arg_local::<Ulong4>((2 * r) as usize)
+                .build()?;
+            unsafe { kernel.enq()?; }
+            in_src = !in_src;
+            p = p * r * 2;
         }
 
         if in_src { self.fft_src_buffer.read(&mut vec).enq()?; }

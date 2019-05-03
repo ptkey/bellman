@@ -120,19 +120,6 @@ __kernel void radix_ifft(__global ulong4* src,
   }
 }
 
-
-uint32 revbits(uint32 p, uint32 ii)
-{
-  uint32 reverse_num = 0;
-  uint32 l = (int)log2((float)p);
-  for(uint32 i = 0; i < l; ++i) {
-    uint32 temp = (ii & (1 << i));
-    if(temp)
-      reverse_num |= (1 << ((l - 1) - i));
-  }
-  return reverse_num;
-}
-
 __kernel void radix_r_fft(__global ulong4* src,
                   __global ulong4* dst,
                   uint n,
@@ -145,24 +132,25 @@ __kernel void radix_r_fft(__global ulong4* src,
   __local uint256 *u = tmp;
   uint256 omega = *(uint256*)&om;
 
-  uint32 glob = get_global_id(0);
+  uint32 gid = get_group_id(0);
   uint32 numg = get_num_groups(0);
   uint32 r = get_local_size(0);
   uint32 i = get_local_id(0);
-  uint32 k = get_group_id(0) & (p-1);
-  uint32 j = (get_group_id(0)-k) * 2 * r + k;
+  uint32 k = gid & (p - 1);
+  uint32 j = (gid - k) * 2 * r + k;
 
-  uint256 twiddle = powmod(omega, (n / p >> r) * k);
-  u[i] = mulmod(powmod(twiddle, i), x[glob + i * numg]);
-  u[i+r] = mulmod(powmod(twiddle, i + r), x[glob + (i + r) * numg]);
+  uint256 twiddle = powmod(omega, (n / 2 / p / r) * k);
+  u[i] = mulmod(powmod(twiddle, i), x[gid + i * numg]);
+  u[i+r] = mulmod(powmod(twiddle, i + r), x[gid + (i + r) * numg]);
+
+  barrier(CLK_LOCAL_MEM_FENCE);
 
   uint256 a,b;
-
   for(uint32 bit = r; bit > 0; bit >>= 1) {
     uint32 di = i & (bit - 1);
-    uint32 i0 = (i <<1 ) - di;
+    uint32 i0 = (i << 1) - di;
     uint32 i1 = i0 + bit;
-    uint256 w = powmod(omega, (n >> r) / bit * di);
+    uint256 w = powmod(omega, n / 2 * di / bit);
     a = u[i0];
     b = u[i1];
     u[i0] = addmod(a, b);
@@ -170,6 +158,7 @@ __kernel void radix_r_fft(__global ulong4* src,
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 
-  y[j+i*p] = u[revbits(2*r,i)];
-  y[j+(i+r)*p] = u[revbits(2*r, i+r)];
+  uint32 lgr = (uint32)log2((float)r);
+  y[j + i*p] = u[bitreverse(i, lgr + 1)];
+  y[j + (i+r)*p] = u[bitreverse(i + r, lgr + 1)];
 }
