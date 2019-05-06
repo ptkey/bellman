@@ -20,8 +20,7 @@ __kernel void radix_fft(__global ulong4* src,
   x += index;
   y += ((index - k) << deg) + k;
 
-  uint256 uu[1<<MAX_RADIX_DEGREE]; uint256 *u = uu;
-  uint256 vv[1<<MAX_RADIX_DEGREE]; uint256 *v = vv;
+  uint256 u[1<<MAX_RADIX_DEGREE];
 
   uint32 count = 1 << deg; // 2^deg
   uint32 counth = count >> 1; // Half of count
@@ -35,25 +34,23 @@ __kernel void radix_fft(__global ulong4* src,
 
   uint32 pqshift = MAX_RADIX_DEGREE - deg;
 
-  for(uint32 rnd = 0; rnd < deg - 1; rnd++) {
-    uint32 lg = 1 << rnd;
-    uint32 st = counth >> rnd;
-    for(uint32 j = 0; j < lg; j++) {
-      uint32 offset = j * st << 1;
-      for(uint32 i = 0; i < st; i++) {
-        uint32 a = offset + i, b = offset + i + st;
-        v[a] = addmod(u[a], u[b]);
-        v[b] = submod(u[a], u[b]);
-        if(i > 0)
-          v[b] = mulmod(v[b], pq[i * lg << pqshift]);
-      }
+  uint256 a,b;
+  for(uint32 rnd = 0; rnd < deg; rnd++) {
+    uint32 bit = counth >> rnd;
+    for(uint32 i = 0; i < counth; i++) {
+      uint32 di = i & (bit - 1);
+      uint32 i0 = (i << 1) - di;
+      uint32 i1 = i0 + bit;
+      uint256 w = pq[di << rnd << pqshift];
+      a = u[i0];
+      b = u[i1];
+      u[i0] = addmod(a, b);
+      u[i1] = mulmod(w, submod(a, b));
     }
-    uint256 *tmp = u; u = v; v = tmp; // Now result is in v, swap!
   }
 
   for(uint32 i = 0; i < counth; i++) {
-    uint32 rev = bitreverse(i, deg);
-    y[i*p] = addmod(u[rev], u[rev+1]);
-    y[(i+counth)*p] = submod(u[rev], u[rev+1]);
+    y[i*p] = u[bitreverse(i, deg)];
+    y[(i+counth)*p] = u[bitreverse(i + counth, deg)];
   }
 }
