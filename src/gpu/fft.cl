@@ -34,18 +34,17 @@ __kernel void radix_fft(__global ulong4* src,
 
   uint32 pqshift = MAX_RADIX_DEGREE - deg;
 
-  uint256 a,b;
+  uint256 tmp;
   for(uint32 rnd = 0; rnd < deg; rnd++) {
     uint32 bit = counth >> rnd;
     for(uint32 i = 0; i < counth; i++) {
       uint32 di = i & (bit - 1);
       uint32 i0 = (i << 1) - di;
       uint32 i1 = i0 + bit;
-      uint256 w = pq[di << rnd << pqshift];
-      a = u[i0];
-      b = u[i1];
-      u[i0] = addmod(a, b);
-      u[i1] = mulmod(w, submod(a, b));
+      tmp = u[i0];
+      u[i0] = addmod(u[i0], u[i1]);
+      u[i1] = submod(tmp, u[i1]);
+      if(di != 0) u[i1] = mulmod(pq[di << rnd << pqshift], u[i1]);
     }
   }
 
