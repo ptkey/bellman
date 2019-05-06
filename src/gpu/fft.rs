@@ -1,4 +1,4 @@
-use ocl::{ProQue, Buffer};
+use ocl::{ProQue, Buffer, MemFlags};
 use ocl::prm::Ulong4;
 use pairing::bls12_381::Fr;
 use std::cmp;
@@ -10,17 +10,19 @@ const MAX_RADIX_DEGREE : u32 = 7; // Radix256
 pub struct FFTKernel {
     proque: ProQue,
     fft_src_buffer: Buffer<Ulong4>,
-    fft_dst_buffer: Buffer<Ulong4>,
-    g_buffer: Buffer<Ulong4>
+    fft_dst_buffer: Buffer<Ulong4>
 }
 
 pub fn initialize(n: u32) -> FFTKernel {
     let src = format!("{}\n{}", UINT256_SRC, KERNEL_SRC);
     let pq = ProQue::builder().src(src).dims(n).build().expect("Cannot create kernel!");
-    let src = pq.create_buffer::<Ulong4>().expect("Cannot allocate buffer!");
-    let dst = pq.create_buffer::<Ulong4>().expect("Cannot allocate buffer!");
-    let g = pq.create_buffer::<Ulong4>().expect("Cannot allocate buffer!");
-    FFTKernel {proque: pq, fft_src_buffer: src, fft_dst_buffer: dst, g_buffer:g }
+    let src = Buffer::builder().queue(pq.queue().clone())
+        .flags(MemFlags::new().read_write()).len(n)
+        .build().expect("Cannot allocate buffer!");
+    let dst = Buffer::builder().queue(pq.queue().clone())
+        .flags(MemFlags::new().read_write()).len(n)
+        .build().expect("Cannot allocate buffer!");
+    FFTKernel {proque: pq, fft_src_buffer: src, fft_dst_buffer: dst}
 }
 
 impl FFTKernel {
