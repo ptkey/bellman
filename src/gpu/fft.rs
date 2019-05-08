@@ -6,8 +6,8 @@ use ff::Field;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
-const MAX_RADIX_DEGREE : u32 = 8; // Radix256
-const MAX_LOCAL_WORK_SIZE_DEGREE : u32 = 1; // 256
+const MAX_RADIX_DEGREE : u32 = 1; // Radix2
+const MAX_LOCAL_WORK_SIZE_DEGREE : u32 = 0; // 1
 
 pub struct FFTKernel {
     proque: ProQue,
@@ -40,20 +40,32 @@ impl FFTKernel {
 
     fn radix_fft_round(&mut self, a: &mut [Ulong4], omega: &Ulong4, lgn: u32, lgp: u32, deg: u32, in_src: bool) -> ocl::Result<()> {
         let n = 1 << lgn;
-        let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
-        let kernel = self.proque.kernel_builder("radix_fft")
-            .global_work_size([n >> deg << lwsd])
-            .local_work_size(1 << lwsd)
-            .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
-            .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
-            .arg(&self.fft_pq_buffer)
-            .arg_local::<Ulong4>(1 << deg)
-            .arg(a.len() as u32)
-            .arg(omega)
-            .arg(lgp)
-            .arg(deg)
-            .build()?;
-        unsafe { kernel.enq()?; }
+        if deg != 1 {
+            let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
+            let kernel = self.proque.kernel_builder("radix_fft")
+                .global_work_size([n >> deg << lwsd])
+                .local_work_size(1 << lwsd)
+                .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
+                .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
+                .arg(&self.fft_pq_buffer)
+                .arg_local::<Ulong4>(1 << deg)
+                .arg(a.len() as u32)
+                .arg(omega)
+                .arg(lgp)
+                .arg(deg)
+                .build()?;
+            unsafe { kernel.enq()?; }
+        } else {
+            let kernel = self.proque.kernel_builder("radix2_fft")
+                .global_work_size([n >> 1])
+                .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
+                .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
+                .arg(a.len() as u32)
+                .arg(omega)
+                .arg(lgp)
+                .build()?;
+            unsafe { kernel.enq()?; }
+        }
         Ok(())
     }
 
@@ -61,10 +73,13 @@ impl FFTKernel {
         let mut tpq = vec![Ulong4::zero(); 1 << MAX_RADIX_DEGREE >> 1];
         let mut pq = unsafe { std::mem::transmute::<&mut [Ulong4], &mut [Fr]>(&mut tpq) };
         let tw = omega.pow([(n >> MAX_RADIX_DEGREE) as u64]);
-        pq[0] = Fr::one(); pq[1] = tw;
-        for i in 2..(1 << MAX_RADIX_DEGREE >> 1) {
-            pq[i] = pq[i-1];
-            pq[i].mul_assign(&tw);
+        pq[0] = Fr::one();
+        if MAX_RADIX_DEGREE > 1 {
+            pq[1] = tw;
+            for i in 2..(1 << MAX_RADIX_DEGREE >> 1) {
+                pq[i] = pq[i-1];
+                pq[i].mul_assign(&tw);
+            }
         }
         self.fft_pq_buffer.write(&tpq).enq().expect("Cannot setup pq buffer!");
     }

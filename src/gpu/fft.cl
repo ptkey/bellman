@@ -1,5 +1,31 @@
 #define MAX_RADIX_DEGREE (8)
 
+__kernel void radix2_fft(__global ulong4* src,
+                  __global ulong4* dst,
+                  uint n,
+                  ulong4 om,
+                  uint lgp) {
+
+  __global uint256 *x = src;
+  __global uint256 *y = dst;
+  uint256 omega = *(uint256*)&om;
+  uint32 i = get_global_id(0);
+  uint32 t = n >> 1;
+  uint32 p = 1 << lgp;
+  uint32 k = i & (p - 1);
+
+  x += i;
+  y += ((i - k) << 1) + k;
+
+  uint256 twiddle = powmod(omega, (n >> lgp >> 1) * k);
+
+  uint256 u0 = x[0];
+  uint256 u1 = mulmod(twiddle, x[1*t]);
+
+  y[0] = addmod(u0, u1);
+  y[p] = submod(u0, u1);
+}
+
 __kernel void radix_fft(__global ulong4* src,
                         __global ulong4* dst,
                         __global ulong4* tpq,
