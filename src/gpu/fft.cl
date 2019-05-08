@@ -3,6 +3,7 @@
 __kernel void radix_fft(__global ulong4* src,
                         __global ulong4* dst,
                         __global ulong4* tpq,
+                        __local ulong4* tu,
                         uint n,
                         ulong4 om,
                         uint lgp,
@@ -11,6 +12,7 @@ __kernel void radix_fft(__global ulong4* src,
   __global uint256 *x = src;
   __global uint256 *y = dst;
   __global uint256 *pq = tpq;
+  __local uint256 *u = tu;
   uint256 omega = *(uint256*)&om;
   uint32 index = get_global_id(0);
   uint32 t = n >> deg;
@@ -19,8 +21,6 @@ __kernel void radix_fft(__global ulong4* src,
 
   x += index;
   y += ((index - k) << deg) + k;
-
-  uint256 u[1<<MAX_RADIX_DEGREE];
 
   uint32 count = 1 << deg; // 2^deg
   uint32 counth = count >> 1; // Half of count

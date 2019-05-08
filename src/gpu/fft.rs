@@ -44,6 +44,7 @@ impl FFTKernel {
             .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
             .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
             .arg(&self.fft_pq_buffer)
+            .arg_local::<Ulong4>(1 << deg)
             .arg(a.len() as u32)
             .arg(omega)
             .arg(lgp)
