@@ -27,8 +27,9 @@ __kernel void radix_fft(__global ulong4* src,
 
   uint32 count = 1 << deg; // 2^deg
   uint32 counth = count >> 1; // Half of count
-  uint32 counts = count / lsize * lid; uint32 counte = counts + count / lsize;
-  uint32 counths = counth / lsize * lid; uint32 counthe = counths + counth / lsize;
+
+  uint32 counts = count / lsize * lid;
+  uint32 counte = counts + count / lsize;
 
   uint256 twiddle = powmod(omega, (n >> lgp >> deg) * k);
   uint256 tmp = powmod(twiddle, counts);
@@ -42,7 +43,7 @@ __kernel void radix_fft(__global ulong4* src,
   uint32 pqshift = MAX_RADIX_DEGREE - deg;
   for(uint32 rnd = 0; rnd < deg; rnd++) {
     uint32 bit = counth >> rnd;
-    for(uint32 i = counths; i < counthe; i++) {
+    for(uint32 i = counts >> 1; i < counte >> 1; i++) {
       uint32 di = i & (bit - 1);
       uint32 i0 = (i << 1) - di;
       uint32 i1 = i0 + bit;
@@ -55,7 +56,7 @@ __kernel void radix_fft(__global ulong4* src,
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 
-  for(uint32 i = counths; i < counthe; i++) {
+  for(uint32 i = counts >> 1; i < counte >> 1; i++) {
     y[i*p] = u[bitreverse(i, deg)];
     y[(i+counth)*p] = u[bitreverse(i + counth, deg)];
   }
