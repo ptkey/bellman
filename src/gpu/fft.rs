@@ -1,8 +1,11 @@
-use ocl::{ProQue, Buffer, MemFlags, MemMap};
+use ocl::{ProQue, Buffer, MemFlags, MapFlags, MemMap};
 use ocl::prm::Ulong4;
 use pairing::bls12_381::Fr;
 use std::cmp;
 use ff::Field;
+use futures::{stream, Future, Sink, Stream, Join};
+use futures::sync::mpsc::{self, Sender};
+use futures_cpupool::{CpuPool, CpuFuture};
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
@@ -85,6 +88,7 @@ impl FFTKernel {
     }
 
     pub fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
+        let thread_pool = CpuPool::new_num_cpus();
         let n = 1 << lgn;
 
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
@@ -104,8 +108,44 @@ impl FFTKernel {
             in_src = !in_src;
         }
         self.proque.finish(); // Wait for kernel
-        if in_src { ta.copy_from_slice(&self.fft_src_map); }
-        else { ta.copy_from_slice(&self.fft_dst_map); }
+
+        if in_src { 
+          //ta.copy_from_slice(&self.fft_src_map);
+          // self.fft_src_buffer.read(&mut vec).enq()?;
+          let future_read_data = unsafe {
+              self.fft_src_buffer.cmd().map()
+                  .flags(MapFlags::new().read())
+                  //.ewait(&kern_event)
+                  .enq_async()?
+          };
+          let read = future_read_data.and_then(move |mut data| {
+            let mut i = 0;
+            for val in data.iter_mut() {
+              ta[i] = *val;
+              i = i +1; 
+            }
+            Ok(())
+          });
+          let spawned_read = thread_pool.spawn(read).wait().unwrap();
+        }
+        else { 
+          //ta.copy_from_slice(&self.fft_dst_map);
+          let future_read_data = unsafe {
+              self.fft_dst_buffer.cmd().map()
+                  .flags(MapFlags::new().read())
+                  //.ewait(&kern_event)
+                  .enq_async()?
+          };
+          let read = future_read_data.and_then(move |mut data| {
+            let mut i = 0;
+            for val in data.iter_mut() {
+              ta[i] = *val;
+              i = i +1; 
+            }
+            Ok(())
+          });
+          let spawned_read = thread_pool.spawn(read).wait().unwrap();
+        }
 
         Ok(())
     }

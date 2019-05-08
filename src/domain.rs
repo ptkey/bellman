@@ -292,11 +292,11 @@ fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T],
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    // let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
-    // println!("index 123 of input array before: {:?}", t);
+    let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
+    println!("index 123 of input array before: {:?}", t);
     kern.radix_fft(ta, tomega, log_n).expect("GPU FFT failed!");
     // kern.shared_mem_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    // println!("index 123 of input array after: {:?}", t);
+    println!("index 123 of input array after: {:?}", t);
 }
 
 fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
