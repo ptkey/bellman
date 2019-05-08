@@ -77,7 +77,7 @@ impl FFTKernel {
 
         self.setup_pq(omega, n);
 
-        for i in 0..n { self.fft_src_map[i] = ta[i]; }
+        self.fft_src_map.copy_from_slice(ta); // memcpy
         let mut in_src = true;
         let mut lgp = 0u32;
         while lgp < lgn {
@@ -89,8 +89,8 @@ impl FFTKernel {
             in_src = !in_src;
         }
         self.proque.finish(); // Wait for kernel
-        if in_src { for i in 0..n { ta[i] = self.fft_src_map[i]; } }
-        else { for i in 0..n { ta[i] = self.fft_dst_map[i]; } }
+        if in_src { ta.copy_from_slice(&self.fft_src_map); }
+        else { ta.copy_from_slice(&self.fft_dst_map); }
 
         Ok(())
     }
