@@ -7,6 +7,7 @@ use ff::Field;
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
 const MAX_RADIX_DEGREE : u32 = 8; // Radix256
+const MAX_LOCAL_WORK_SIZE_DEGREE : u32 = 1; // 256
 
 pub struct FFTKernel {
     proque: ProQue,
@@ -39,9 +40,10 @@ impl FFTKernel {
 
     fn radix_fft_round(&mut self, a: &mut [Ulong4], omega: &Ulong4, lgn: u32, lgp: u32, deg: u32, in_src: bool) -> ocl::Result<()> {
         let n = 1 << lgn;
+        let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
         let kernel = self.proque.kernel_builder("radix_fft")
-            .global_work_size([n >> deg])
-            .local_work_size(1)
+            .global_work_size([n >> deg << lwsd])
+            .local_work_size(1 << lwsd)
             .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
             .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
             .arg(&self.fft_pq_buffer)
