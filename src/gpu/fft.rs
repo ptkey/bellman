@@ -41,6 +41,7 @@ impl FFTKernel {
         let n = 1 << lgn;
         let kernel = self.proque.kernel_builder("radix_fft")
             .global_work_size([n >> deg])
+            .local_work_size(1)
             .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
             .arg(if in_src { &self.fft_dst_buffer } else { &self.fft_src_buffer })
             .arg(&self.fft_pq_buffer)
