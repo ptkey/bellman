@@ -26,15 +26,14 @@ __kernel void radix_fft(__global ulong4* src,
   uint32 counth = count >> 1; // Half of count
 
   uint256 twiddle = powmod(omega, (n >> lgp >> deg) * k);
-  uint256 curr = ONE;
+  uint256 tmp = ONE;
   for(uint32 i = 0; i < count; i++) {
-    u[i] = mulmod(curr, x[i*t]);
-    curr = mulmod(curr, twiddle);
+    u[i] = mulmod(tmp, x[i*t]);
+    tmp = mulmod(tmp, twiddle);
   }
 
   uint32 pqshift = MAX_RADIX_DEGREE - deg;
 
-  uint256 tmp;
   for(uint32 rnd = 0; rnd < deg; rnd++) {
     uint32 bit = counth >> rnd;
     for(uint32 i = 0; i < counth; i++) {
