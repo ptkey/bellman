@@ -1,4 +1,4 @@
-#define MAX_RADIX_DEGREE (7)
+#define MAX_RADIX_DEGREE (8)
 
 __kernel void radix_fft(__global ulong4* src,
                         __global ulong4* dst,

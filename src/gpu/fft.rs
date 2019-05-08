@@ -1,4 +1,4 @@
-use ocl::{ProQue, Buffer, MemFlags};
+use ocl::{ProQue, Buffer, MemFlags, MemMap};
 use ocl::prm::Ulong4;
 use pairing::bls12_381::Fr;
 use std::cmp;
@@ -6,12 +6,12 @@ use ff::Field;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
-const MAX_RADIX_DEGREE : u32 = 7; // Radix256
+const MAX_RADIX_DEGREE : u32 = 8; // Radix256
 
 pub struct FFTKernel {
     proque: ProQue,
-    fft_src_buffer: Buffer<Ulong4>,
-    fft_dst_buffer: Buffer<Ulong4>,
+    fft_src_buffer: Buffer<Ulong4>, fft_src_map: MemMap<Ulong4>,
+    fft_dst_buffer: Buffer<Ulong4>, fft_dst_map: MemMap<Ulong4>,
     fft_pq_buffer: Buffer<Ulong4>
 }
 
@@ -21,13 +21,18 @@ pub fn initialize(n: u32) -> FFTKernel {
     let srcbuff = Buffer::builder().queue(pq.queue().clone())
         .flags(MemFlags::new().read_write()).len(n)
         .build().expect("Cannot allocate buffer!");
+    let srcmap = unsafe { srcbuff.map().enq().expect("Cannot map buffer!") };
     let dstbuff = Buffer::builder().queue(pq.queue().clone())
         .flags(MemFlags::new().read_write()).len(n)
         .build().expect("Cannot allocate buffer!");
+    let dstmap = unsafe { dstbuff.map().enq().expect("Cannot map buffer!") };
     let pqbuff = Buffer::builder().queue(pq.queue().clone())
         .flags(MemFlags::new().read_write()).len(1 << MAX_RADIX_DEGREE >> 1)
         .build().expect("Cannot allocate buffer!");
-    FFTKernel {proque: pq, fft_src_buffer: srcbuff, fft_dst_buffer: dstbuff, fft_pq_buffer: pqbuff}
+    FFTKernel {proque: pq,
+                fft_src_buffer: srcbuff, fft_src_map: srcmap,
+                fft_dst_buffer: dstbuff, fft_dst_map: dstmap,
+                fft_pq_buffer: pqbuff}
 }
 
 impl FFTKernel {
@@ -48,23 +53,27 @@ impl FFTKernel {
         Ok(())
     }
 
+    fn setup_pq(&mut self, omega: &Fr, n: usize) {
+        let mut tpq = vec![Ulong4::zero(); 1 << MAX_RADIX_DEGREE >> 1];
+        let mut pq = unsafe { std::mem::transmute::<&mut [Ulong4], &mut [Fr]>(&mut tpq) };
+        let tw = omega.pow([(n >> MAX_RADIX_DEGREE) as u64]);
+        pq[0] = Fr::one(); pq[1] = tw;
+        for i in 2..(1 << MAX_RADIX_DEGREE >> 1) {
+            pq[i] = pq[i-1];
+            pq[i].mul_assign(&tw);
+        }
+        self.fft_pq_buffer.write(&tpq).enq().expect("Cannot setup pq buffer!");
+    }
+
     pub fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
         let n = 1 << lgn;
 
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
         let tomega = unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) };
 
-        let mut tpq = vec![Ulong4::zero(); 1 << MAX_RADIX_DEGREE >> 1];
-        let mut pq = unsafe { std::mem::transmute::<&mut [Ulong4], &mut [Fr]>(&mut tpq) };
-        let tw = omega.pow([(n >> MAX_RADIX_DEGREE) as u64]);
-        pq[0] = Fr::one(); pq[1] = tw;
-        for i in 2..(1 << MAX_RADIX_DEGREE >> 1) {
-            pq[i] = pq[i-1]; pq[i].mul_assign(&tw);
-        }
-        self.fft_pq_buffer.write(&tpq).enq()?;
+        self.setup_pq(omega, n);
 
-        self.fft_src_buffer.write(&*ta).enq()?;
-
+        for i in 0..n { self.fft_src_map[i] = ta[i]; }
         let mut in_src = true;
         let mut lgp = 0u32;
         while lgp < lgn {
@@ -75,9 +84,9 @@ impl FFTKernel {
             lgp += deg;
             in_src = !in_src;
         }
-
-        if in_src { self.fft_src_buffer.read(ta).enq()?; }
-        else { self.fft_dst_buffer.read(ta).enq()?; }
+        self.proque.finish(); // Wait for kernel
+        if in_src { for i in 0..n { ta[i] = self.fft_src_map[i]; } }
+        else { for i in 0..n { ta[i] = self.fft_dst_map[i]; } }
 
         Ok(())
     }
