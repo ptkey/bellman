@@ -31,11 +31,11 @@ __kernel void radix_fft(__global ulong4* src,
   uint32 counts = count / lsize * lid;
   uint32 counte = counts + count / lsize;
 
-  //////// 20% of total time
+  //////// ~30% of total time
   uint256 twiddle = powmodcached(omegas, (n >> lgp >> deg) * k);
   ////////
 
-  //////// 40% of total time
+  //////// ~35% of total time
   uint256 tmp = powmod(twiddle, counts);
   for(uint32 i = counts; i < counte; i++) {
     u[i] = mulmod(tmp, x[i*t]);
@@ -44,7 +44,7 @@ __kernel void radix_fft(__global ulong4* src,
   barrier(CLK_LOCAL_MEM_FENCE);
   ////////
 
-  //////// 40% of total time
+  //////// ~35% of total time
   uint32 pqshift = MAX_RADIX_DEGREE - deg;
   for(uint32 rnd = 0; rnd < deg; rnd++) {
     uint32 bit = counth >> rnd;
