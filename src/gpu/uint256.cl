@@ -19,14 +19,12 @@ typedef struct { uint32 val[8]; } uint256;
 #define INV ((uint32)4294967295)
 
 // Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
-void add_digit(uint64 *res, uint64 num) {
-  while(true) {
-    uint64 old = *res;
-    *res += num;
-    if(*res < old) {
-      num = 1;
-      res++;
-    } else break;
+void add_digit(uint32 *res, uint32 num) {
+  uint32 old = *res;
+  *res += num;
+  if(*res < old) {
+    res++;
+    while(++(*(res++)) == 0);
   }
 }
 
@@ -69,21 +67,26 @@ uint256 mulmod(uint256 a, uint256 b) {
 
   // Long multiplication
   uint32 res[16] = {0};
-  for(int i = 0; i < 8; i++) {
-    for(int j = 0; j < 8; j++) {
-      uint64 total = (uint64)a.val[i] * (uint64)b.val[j];
-      add_digit((uint64*)(res + i + j), total);
+  for(uint32 i = 0; i < 8; i++) {
+    uint32 carry = 0;
+    for(uint32 j = 0; j < 8; j++) {
+      uint64 product = (uint64)a.val[i] * b.val[j] + res[i + j] + carry;
+      res[i + j] = product & 0xffffffff;
+      carry = product >> 32;
     }
+    res[i + 8] = carry;
   }
 
   // Montgomery reduction
-  for (int i = 0; i < 8; i++)
-  {
+  for(uint32 i = 0; i < 8; i++) {
     uint64 u = ((uint64)INV * (uint64)res[i]) & 0xffffffff;
-    for(int j = 0; j < 8; j++) {
-      uint64 total = u * (uint64)p.val[j];
-      add_digit((uint64*)(res + i + j), total);
+    uint32 carry = 0;
+    for(uint32 j = 0; j < 8; j++) {
+      uint64 product = u * p.val[j] + res[i + j] + carry;
+      res[i + j] = product & 0xffffffff;
+      carry = product >> 32;
     }
+    add_digit(res + i + 8, carry);
   }
 
   // Divide by R
