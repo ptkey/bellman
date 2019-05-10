@@ -130,6 +130,18 @@ uint256 powmod(uint256 base, uint32 exponent) {
   return res;
 }
 
+uint256 powmodcached(__global uint256 *bases, uint32 exponent) {
+  uint256 res = ONE;
+  uint32 i = 0;
+  while(exponent > 0) {
+    if (exponent & 1)
+      res = mulmod(res, bases[i]);
+    exponent = exponent >> 1;
+    i++;
+  }
+  return res;
+}
+
 uint32 bitreverse(uint32 n, uint32 bits) {
   uint32 r = 0;
   for(int i = 0; i < bits; i++) {

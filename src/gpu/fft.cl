@@ -3,18 +3,18 @@
 __kernel void radix_fft(__global ulong4* src,
                         __global ulong4* dst,
                         __global ulong4* tpq,
+                        __global ulong4* tom,
                         __local ulong4* tu,
                         uint n,
-                        ulong4 om,
                         uint lgp,
                         uint deg) // 1=>radix2, 2=>radix4, 3=>radix8, ...
 {
   __global uint256 *x = src;
   __global uint256 *y = dst;
   __global uint256 *pq = tpq;
+  __global uint256 *omegas = tom;
   __local uint256 *u = tu;
 
-  uint256 omega = *(uint256*)&om;
   uint32 lid = get_local_id(0);
   uint32 lsize = get_local_size(0);
   uint32 index = get_group_id(0);
@@ -32,7 +32,7 @@ __kernel void radix_fft(__global ulong4* src,
   uint32 counte = counts + count / lsize;
 
   //////// 20% of total time
-  uint256 twiddle = powmod(omega, (n >> lgp >> deg) * k);
+  uint256 twiddle = powmodcached(omegas, (n >> lgp >> deg) * k);
   ////////
 
   //////// 40% of total time
