@@ -54,7 +54,7 @@ uint256 add(uint256 a, uint256 b) {
 uint256 sub(uint256 a, uint256 b) {
   uint32 borrow = 0;
   for(int i = 0; i < 8; i++) {
-    uint32 old = a.val[i];
+    uint32 old = a.val[i] - borrow;
     a.val[i] -= b.val[i] + borrow;
     borrow = old < a.val[i];
   }
