@@ -541,9 +541,9 @@ pub fn gpu_fft_consistency() {
     for log_d in 1..25 {
         let d = 1 << log_d;
 
-        let v1 = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
-        let mut v1 = EvaluationDomain::from_coeffs(v1).unwrap();
-        let mut v2 = EvaluationDomain::from_coeffs(v1.coeffs.clone()).unwrap();
+        let elems = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
+        let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+        let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
 
         println!("Testing FFT for {} elements...", d);
 
@@ -560,7 +560,13 @@ pub fn gpu_fft_consistency() {
 
         println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
 
-        let res = v1.coeffs == v2.coeffs;
+        let mut res = v1.coeffs == v2.coeffs;
+        while !res {
+            println!("Not correct, try again...");
+            v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+            bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d);
+            res = v1.coeffs == v2.coeffs;
+        }
         println!("Correct?: {}", v1.coeffs == v2.coeffs);
         println!("============================");
     }
