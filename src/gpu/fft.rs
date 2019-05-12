@@ -101,9 +101,9 @@ impl FFTKernel {
             lgp += deg;
             in_src = !in_src;
         }
+        self.proque.finish(); // Wait for kernel
         if in_src { self.fft_src_buffer.read(ta).enq()?; }
         else { self.fft_dst_buffer.read(ta).enq()?; }
-        self.proque.finish(); // Wait for kernel
 
         Ok(())
     }
