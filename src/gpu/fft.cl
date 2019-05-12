@@ -1,5 +1,3 @@
-#define MAX_RADIX_DEGREE (8)
-
 __kernel void radix_fft(__global ulong4* src,
                         __global ulong4* dst,
                         __global ulong4* tpq,
@@ -7,7 +5,8 @@ __kernel void radix_fft(__global ulong4* src,
                         __local ulong4* tu,
                         uint n,
                         uint lgp,
-                        uint deg) // 1=>radix2, 2=>radix4, 3=>radix8, ...
+                        uint deg, // 1=>radix2, 2=>radix4, 3=>radix8, ...
+                        uint max_deg)
 {
   __global uint256 *x = src;
   __global uint256 *y = dst;
@@ -45,7 +44,7 @@ __kernel void radix_fft(__global ulong4* src,
   ////////
 
   //////// ~35% of total time
-  uint32 pqshift = MAX_RADIX_DEGREE - deg;
+  uint32 pqshift = max_deg - deg;
   for(uint32 rnd = 0; rnd < deg; rnd++) {
     uint32 bit = counth >> rnd;
     for(uint32 i = counts >> 1; i < counte >> 1; i++) {

@@ -41,7 +41,7 @@ pub fn initialize(n: u32) -> FFTKernel {
 
 impl FFTKernel {
 
-    fn radix_fft_round(&mut self, a: &mut [Ulong4], lgn: u32, lgp: u32, deg: u32, in_src: bool) -> ocl::Result<()> {
+    fn radix_fft_round(&mut self, a: &mut [Ulong4], lgn: u32, lgp: u32, deg: u32, max_deg: u32, in_src: bool) -> ocl::Result<()> {
         let n = 1 << lgn;
         let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
         let kernel = self.proque.kernel_builder("radix_fft")
@@ -55,19 +55,20 @@ impl FFTKernel {
             .arg(a.len() as u32)
             .arg(lgp)
             .arg(deg)
+            .arg(max_deg)
             .build()?;
         unsafe { kernel.enq()?; }
         Ok(())
     }
 
-    fn setup_pq(&mut self, omega: &Fr, n: usize) {
-        let mut tpq = vec![Ulong4::zero(); 1 << MAX_RADIX_DEGREE >> 1];
+    fn setup_pq(&mut self, omega: &Fr, n: usize, max_deg: u32) {
+        let mut tpq = vec![Ulong4::zero(); 1 << max_deg >> 1];
         let mut pq = unsafe { std::mem::transmute::<&mut [Ulong4], &mut [Fr]>(&mut tpq) };
-        let tw = omega.pow([(n >> MAX_RADIX_DEGREE) as u64]);
+        let tw = omega.pow([(n >> max_deg) as u64]);
         pq[0] = Fr::one();
-        if MAX_RADIX_DEGREE > 1 {
+        if max_deg > 1 {
             pq[1] = tw;
-            for i in 2..(1 << MAX_RADIX_DEGREE >> 1) {
+            for i in 2..(1 << max_deg >> 1) {
                 pq[i] = pq[i-1];
                 pq[i].mul_assign(&tw);
             }
@@ -88,22 +89,23 @@ impl FFTKernel {
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };
         let tomega = unsafe { std::mem::transmute::<&Fr, &Ulong4>(omega) };
 
-        self.setup_pq(omega, n);
+        let max_deg = cmp::min(MAX_RADIX_DEGREE, lgn);
+        self.setup_pq(omega, n, max_deg);
 
         self.fft_src_buffer.write(&*ta).enq()?;
         let mut in_src = true;
         let mut lgp = 0u32;
         while lgp < lgn {
-            let deg = cmp::min(MAX_RADIX_DEGREE, lgn - lgp);
-            match self.radix_fft_round(ta, lgn, lgp, deg, in_src) {
+            let deg = cmp::min(max_deg, lgn - lgp);
+            match self.radix_fft_round(ta, lgn, lgp, deg, max_deg, in_src) {
                 Ok(_) => (), Err(e) => return Err(e),
             }
             lgp += deg;
             in_src = !in_src;
         }
-        self.proque.finish(); // Wait for kernel
         if in_src { self.fft_src_buffer.read(ta).enq()?; }
         else { self.fft_dst_buffer.read(ta).enq()?; }
+        self.proque.finish(); // Wait for all commands in the queue (Including read command)
 
         Ok(())
     }
