@@ -538,7 +538,28 @@ pub fn gpu_fft_consistency() {
     let log_cpus = worker.log_num_cpus();
     let mut kern = gpu::initialize(1 << 24);
 
-    for log_d in 1..25 {
+    for i in 0..100000 {
+        let log_d = 4;
+        let d = 1 << log_d;
+        let elems = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
+        let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+        let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+        bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d);
+        if log_d <= log_cpus { serial_fft(&mut v2.coeffs, &v2.omega, log_d); }
+        else { parallel_fft(&mut v2.coeffs, &worker, &v2.omega, log_d, log_cpus); }
+        if v1.coeffs == v2.coeffs {
+            println!("Correct.");
+        } else {
+            println!("Not correct for elements: ");
+            let ta = unsafe { std::mem::transmute::<& [Scalar<Bls12>], & [Fr]>(&elems) };
+            for i in 0..d {
+                println!("{}", ta[i]);
+            }
+            break;
+        }
+    }
+
+    /*for log_d in 1..25 {
         let d = 1 << log_d;
 
         let elems = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
@@ -569,5 +590,5 @@ pub fn gpu_fft_consistency() {
         }
         println!("Correct?: {}", v1.coeffs == v2.coeffs);
         println!("============================");
-    }
+    }*/
 }
