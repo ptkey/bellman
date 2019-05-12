@@ -539,7 +539,7 @@ pub fn gpu_fft_consistency() {
     let mut kern = gpu::initialize(1 << 24);
 
     for i in 0..100000 {
-        let log_d = 4;
+        let log_d = 21;
         let d = 1 << log_d;
         let elems = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
         let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
@@ -551,9 +551,12 @@ pub fn gpu_fft_consistency() {
             println!("Correct.");
         } else {
             println!("Not correct for elements: ");
-            let ta = unsafe { std::mem::transmute::<& [Scalar<Bls12>], & [Fr]>(&elems) };
+            let ta1 = unsafe { std::mem::transmute::<& [Scalar<Bls12>], & [Fr]>(&v1.coeffs) };
+            let ta2 = unsafe { std::mem::transmute::<& [Scalar<Bls12>], & [Fr]>(&v2.coeffs) };
             for i in 0..d {
-                println!("{}", ta[i]);
+                if ta1[i] != ta2[i] {
+                    println!("Difference in {}th elements\n{}\n{}", i,ta1[i],ta2[i]);
+                }
             }
             break;
         }
