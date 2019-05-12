@@ -287,19 +287,19 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel>, a: &mut [
 
 use pairing::bls12_381::Fr;
 
-fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32)
+pub fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
     let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
-    println!("index 123 of input array before: {:?}", t);
+    //let t = unsafe { std::mem::transmute::<&mut T, &mut Fr>(&mut a[123]) };
+    //println!("index 123 of input array before: {:?}", t);
     kern.radix_fft(ta, tomega, log_n).expect("GPU FFT failed!");
     // kern.shared_mem_fft(ta, tomega, log_n).expect("GPU FFT failed!");
-    println!("index 123 of input array after: {:?}", t);
+    //println!("index 123 of input array after: {:?}", t);
 }
 
-fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
+pub fn serial_fft<E: Engine, T: Group<E>>(a: &mut [T], omega: &E::Fr, log_n: u32)
 {
     fn bitreverse(mut n: u32, l: u32) -> u32 {
         let mut r = 0;
@@ -528,28 +528,40 @@ fn parallel_fft_consistency() {
     test_consistency::<Bls12, _>(rng);
 }
 
-#[test]
-fn gpu_fft_consistency() {
+//#[test]
+pub fn gpu_fft_consistency() {
     use pairing::bls12_381::{Bls12, Fr};
     use rand::{self, Rand};
     let rng = &mut rand::thread_rng();
 
-    let mut kern = gpu::initialize(1024);
+    let worker = Worker::new();
+    let log_cpus = worker.log_num_cpus();
+    let mut kern = gpu::initialize(1 << 24);
 
-    for _ in 0..5 {
-        for log_d in 0..10 {
+    for log_d in 1..25 {
+        let d = 1 << log_d;
 
+        let v1 = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
+        let mut v1 = EvaluationDomain::from_coeffs(v1).unwrap();
+        let mut v2 = EvaluationDomain::from_coeffs(v1.coeffs.clone()).unwrap();
 
-            let d = 1 << log_d;
+        println!("Testing FFT for {} elements...", d);
 
-            let v1 = (0..d).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
-            let mut v1 = EvaluationDomain::from_coeffs(v1).unwrap();
-            let mut v2 = EvaluationDomain::from_coeffs(v1.coeffs.clone()).unwrap();
+        let mut now = Instant::now();
+        bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d);
+        let gpu_dur = now.elapsed().as_millis();
+        println!("GPU took {}ms.", gpu_dur);
 
-            bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d);
-            serial_fft(&mut v2.coeffs, &v2.omega, log_d);
+        now = Instant::now();
+        if log_d <= log_cpus { serial_fft(&mut v2.coeffs, &v2.omega, log_d); }
+        else { parallel_fft(&mut v2.coeffs, &worker, &v2.omega, log_d, log_cpus); }
+        let cpu_dur = now.elapsed().as_millis();
+        println!("CPU ({} cores) took {}ms.", 1 << log_cpus, cpu_dur);
 
-            assert!(v1.coeffs == v2.coeffs);
-        }
+        println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
+
+        let res = v1.coeffs == v2.coeffs;
+        println!("Correct?: {}", v1.coeffs == v2.coeffs);
+        println!("============================");
     }
 }

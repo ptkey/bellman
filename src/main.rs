@@ -18,7 +18,9 @@ use std::thread::sleep;
 mod dummy;
 
 fn main(){
-    use pairing::bls12_381::{Bls12, Fr};
+    use bellman::domain::{gpu_fft_consistency};
+    gpu_fft_consistency();
+    /*use pairing::bls12_381::{Bls12, Fr};
     use rand::thread_rng;
     use bellman::groth16::{
         create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof, Proof,
@@ -30,7 +32,7 @@ fn main(){
 
     println!("Creating parameters...");
 
-    let load_parameters = false;
+    let load_parameters = true;
     let parameters_path = "parameters.dat";
 
     // Create parameters for our circuit
@@ -68,5 +70,5 @@ fn main(){
         &pvk,
         &proof,
         &[]
-    ).unwrap());
+    ).unwrap());*/
 }
