@@ -549,13 +549,13 @@ pub fn gpu_fft_consistency() {
 
         let mut now = Instant::now();
         bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d);
-        let gpu_dur = now.elapsed().as_millis();
+        let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
         println!("GPU took {}ms.", gpu_dur);
 
         now = Instant::now();
         if log_d <= log_cpus { serial_fft(&mut v2.coeffs, &v2.omega, log_d); }
         else { parallel_fft(&mut v2.coeffs, &worker, &v2.omega, log_d, log_cpus); }
-        let cpu_dur = now.elapsed().as_millis();
+        let cpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
         println!("CPU ({} cores) took {}ms.", 1 << log_cpus, cpu_dur);
 
         println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
