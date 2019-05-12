@@ -45,7 +45,7 @@ uint256 add(uint256 a, uint256 b) {
   for(int i = 0; i < 8; i++) {
     uint32 old = a.val[i];
     a.val[i] += b.val[i] + carry;
-    carry = old > a.val[i];
+    carry = carry ? old >= a.val[i] : old > a.val[i];
   }
   return a;
 }
@@ -54,9 +54,9 @@ uint256 add(uint256 a, uint256 b) {
 uint256 sub(uint256 a, uint256 b) {
   uint32 borrow = 0;
   for(int i = 0; i < 8; i++) {
-    uint32 old = a.val[i] - borrow;
+    uint32 old = a.val[i];
     a.val[i] -= b.val[i] + borrow;
-    borrow = old < a.val[i];
+    borrow = borrow ? old <= a.val[i] : old < a.val[i];
   }
   return a;
 }
