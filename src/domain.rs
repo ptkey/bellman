@@ -514,6 +514,7 @@ pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
     use std::time::Instant;
     use pairing::bls12_381::{Bls12};
     use rand::{Rand};
+    use std::cmp;
     let rng = &mut rand::thread_rng();
 
     let worker = Worker::new();
@@ -521,7 +522,7 @@ pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
 
     let mut kern = gpu::FFTKernel::create(1 << log_d)?;
 
-    let log_d_test = 20;
+    let log_d_test = cmp::min(20, log_d);
     let d_test = 1 << log_d_test;
 
     let elems = (0..d_test).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
