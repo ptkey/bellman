@@ -26,6 +26,7 @@ use super::{
 use super::multicore::Worker;
 
 use gpu;
+use gpu::FFTAccelerator;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -519,7 +520,7 @@ pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
     let worker = Worker::new();
     let log_cpus = worker.log_num_cpus();
 
-    let mut kern = gpu::initialize(1 << log_d)?;
+    let mut kern = gpu::FFTKernel::create(1 << log_d)?;
 
     let log_d_test = 20;
     let d_test = 1 << log_d_test;
@@ -550,7 +551,7 @@ pub fn gpu_fft_consistency() {
 
     let worker = Worker::new();
     let log_cpus = worker.log_num_cpus();
-    let mut kern = gpu::initialize(1 << 24).expect("Cannot initialize kernel!");
+    let mut kern = gpu::FFTKernel::create(1 << 24).expect("Cannot initialize kernel!");
 
     for log_d in 1..25 {
         let d = 1 << log_d;
