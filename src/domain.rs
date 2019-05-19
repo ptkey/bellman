@@ -26,7 +26,6 @@ use super::{
 use super::multicore::Worker;
 
 use gpu;
-use gpu::FFTAccelerator;
 
 pub struct EvaluationDomain<E: Engine, G: Group<E>> {
     coeffs: Vec<G>,

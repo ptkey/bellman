@@ -7,6 +7,8 @@ extern crate bit_vec;
 extern crate crossbeam;
 extern crate byteorder;
 extern crate ff;
+
+#[cfg(feature = "ocl")]
 extern crate ocl;
 
 pub mod multicore;

@@ -10,10 +10,6 @@ static KERNEL_SRC : &str = include_str!("fft.cl");
 const MAX_RADIX_DEGREE : u32 = 8; // Radix2
 const MAX_LOCAL_WORK_SIZE_DEGREE : u32 = 7; // 1
 
-pub trait FFTAccelerator {
-    fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> GPUResult<()>;
-}
-
 pub struct FFTKernel {
     proque: ProQue,
     fft_src_buffer: Buffer<Ulong4>,
@@ -89,10 +85,8 @@ impl FFTKernel {
 
         Ok(())
     }
-}
 
-impl FFTAccelerator for FFTKernel {
-    fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> GPUResult<()> {
+    pub fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> GPUResult<()> {
         let n = 1 << lgn;
 
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };

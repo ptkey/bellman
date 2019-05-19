@@ -16,12 +16,12 @@ futures-cpupool = "0.1"
 num_cpus = "1"
 crossbeam = "0.7"
 byteorder = "1"
-ocl = "0.19"
 ff = "0.4.0"
+ocl = { version = "0.19", optional = true }
 
 [dependencies.pairing]
 git = "https://github.com/filecoin-project/pairing"
 branch = "master"
 
 [features]
-default = []
+default = ["ocl"]
