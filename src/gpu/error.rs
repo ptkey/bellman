@@ -27,6 +27,6 @@ impl error::Error for GPUError {
 use ocl;
 impl From<ocl::Error> for GPUError {
     fn from(error: ocl::Error) -> Self {
-        GPUError {msg: "An error happened!".to_string() }
+        GPUError {msg: error.to_string() }
     }
 }
