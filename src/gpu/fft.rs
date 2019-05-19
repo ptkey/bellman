@@ -18,7 +18,7 @@ pub struct FFTKernel {
     fft_omg_buffer: Buffer<Ulong4>
 }
 
-pub fn initialize(n: u32) -> ocl::Result<FFTKernel> {
+pub fn initialize(n: u32) -> GPUResult<FFTKernel> {
     let src = format!("{}\n{}", UINT256_SRC, KERNEL_SRC);
     let pq = ProQue::builder().src(src).dims(n).build()?;
     let srcbuff = Buffer::builder().queue(pq.queue().clone())
