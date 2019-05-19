@@ -3,6 +3,7 @@ use ocl::prm::Ulong4;
 use pairing::bls12_381::Fr;
 use std::cmp;
 use ff::Field;
+use super::error::GPUResult;
 
 static UINT256_SRC : &str = include_str!("uint256.cl");
 static KERNEL_SRC : &str = include_str!("fft.cl");
@@ -85,7 +86,7 @@ impl FFTKernel {
         Ok(())
     }
 
-    pub fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> ocl::Result<()> {
+    pub fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> GPUResult<()> {
         let n = 1 << lgn;
 
         let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [Ulong4]>(a) };

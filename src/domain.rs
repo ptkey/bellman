@@ -277,7 +277,7 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel>, a: &mut [
 
 use pairing::bls12_381::Fr;
 
-pub fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32) -> ocl::Result<()>
+pub fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32) -> gpu::GPUResult<()>
 {
     // Inputs are all in montgomery form
     let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
@@ -510,7 +510,7 @@ fn parallel_fft_consistency() {
     test_consistency::<Bls12, _>(rng);
 }
 
-pub fn gpu_fft_supported(log_d: u32) -> ocl::Result<gpu::FFTKernel> {
+pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
     use std::time::Instant;
     use pairing::bls12_381::{Bls12};
     use rand::{Rand};
@@ -538,7 +538,7 @@ pub fn gpu_fft_supported(log_d: u32) -> ocl::Result<gpu::FFTKernel> {
     let cpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
 
     if v1.coeffs == v2.coeffs && gpu_dur < cpu_dur { Ok(kern) }
-    else { Err(ocl::Error::from("GPU FFT is not working well on your machine!")) }
+    else { Err(gpu::GPUError {msg: "GPU FFT is not working well on your machine!".to_string()}) }
 }
 
 //#[test]
