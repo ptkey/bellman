@@ -542,7 +542,7 @@ pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
     else { Err(gpu::GPUError {msg: "GPU FFT is not working well on your machine!".to_string()}) }
 }
 
-//#[test]
+#[test]
 pub fn gpu_fft_consistency() {
     use std::time::Instant;
     use pairing::bls12_381::{Bls12};
