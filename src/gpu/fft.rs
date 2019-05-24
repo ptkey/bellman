@@ -1,6 +1,6 @@
 use ocl::{ProQue, Buffer, MemFlags};
 use ocl::prm::Ulong4;
-use pairing::bls12_381::Fr;
+use paired::bls12_381::Fr;
 use std::cmp;
 use ff::Field;
 use super::error::GPUResult;

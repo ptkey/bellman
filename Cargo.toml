@@ -1,12 +1,13 @@
 [package]
+name = "bellperson"
+
 authors = ["Sean Bowe <ewillbefull@gmail.com>"]
 description = "zk-SNARK library"
-documentation = "https://github.com/ebfull/bellman"
-homepage = "https://github.com/ebfull/bellman"
+documentation = "https://docs.rs/bellperson"
+homepage = "https://github.com/filecoin-project/bellman"
 license = "MIT/Apache-2.0"
-name = "bellman"
-repository = "https://github.com/ebfull/bellman"
-version = "0.1.1"
+repository = "https://github.com/filecoin-project/bellman"
+version = "0.2.1-alpha.0"
 
 [dependencies]
 rand = "0.4"
@@ -17,11 +18,12 @@ num_cpus = "1"
 crossbeam = "0.7"
 byteorder = "1"
 ff = "0.4.0"
+paired = "0.15"
 ocl = { version = "0.19", optional = true }
-
-[dependencies.pairing]
-git = "https://github.com/filecoin-project/pairing"
-branch = "master"
 
 [features]
 default = ["ocl"]
+
+[package.metadata.release]
+pre-release-commit-message = "chore(release): release {{version}}"
+pro-release-commit-message = "chore(release): starting development cycle for {{next_version}}"

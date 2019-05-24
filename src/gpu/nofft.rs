@@ -1,4 +1,4 @@
-use pairing::bls12_381::Fr;
+use paired::bls12_381::Fr;
 use super::error::{GPUResult, GPUError};
 
 pub struct FFTKernel;
