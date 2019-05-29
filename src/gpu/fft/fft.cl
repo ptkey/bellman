@@ -8,11 +8,11 @@ __kernel void radix_fft(__global ulong4* src,
                         uint deg, // 1=>radix2, 2=>radix4, 3=>radix8, ...
                         uint max_deg)
 {
-  __global uint256 *x = src;
-  __global uint256 *y = dst;
-  __global uint256 *pq = tpq;
-  __global uint256 *omegas = tom;
-  __local uint256 *u = tu;
+  __global field *x = src;
+  __global field *y = dst;
+  __global field *pq = tpq;
+  __global field *omegas = tom;
+  __local field *u = tu;
 
   uint32 lid = get_local_id(0);
   uint32 lsize = get_local_size(0);
@@ -31,11 +31,11 @@ __kernel void radix_fft(__global ulong4* src,
   uint32 counte = counts + count / lsize;
 
   //////// ~30% of total time
-  uint256 twiddle = powmodcached(omegas, (n >> lgp >> deg) * k);
+  field twiddle = powmodcached(omegas, (n >> lgp >> deg) * k);
   ////////
 
   //////// ~35% of total time
-  uint256 tmp = powmod(twiddle, counts);
+  field tmp = powmod(twiddle, counts);
   for(uint32 i = counts; i < counte; i++) {
     u[i] = mulmod(tmp, x[i*t]);
     tmp = mulmod(tmp, twiddle);

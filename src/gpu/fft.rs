@@ -5,8 +5,9 @@ use std::cmp;
 use ff::Field;
 use super::error::GPUResult;
 
-static UINT256_SRC : &str = include_str!("uint256.cl");
-static KERNEL_SRC : &str = include_str!("fft.cl");
+static DEFS_SRC : &str = include_str!("fft/defs.cl");
+static FIELD_SRC : &str = include_str!("field.cl");
+static KERNEL_SRC : &str = include_str!("fft/fft.cl");
 const MAX_RADIX_DEGREE : u32 = 8; // Radix2
 const MAX_LOCAL_WORK_SIZE_DEGREE : u32 = 7; // 1
 
@@ -21,7 +22,7 @@ pub struct FFTKernel {
 impl FFTKernel {
 
     pub fn create(n: u32) -> GPUResult<FFTKernel> {
-        let src = format!("{}\n{}", UINT256_SRC, KERNEL_SRC);
+        let src = format!("{}\n{}\n{}", DEFS_SRC, FIELD_SRC, KERNEL_SRC);
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let srcbuff = Buffer::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
