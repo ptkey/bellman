@@ -208,14 +208,16 @@ where
 
     let vk = params.get_vk(prover.input_assignment.len())?;
 
+    let mut multiexp_kern = gpu_multiexp_supported(0).ok();
+    if multiexp_kern.is_some() { println!("GPU Multiexp is supported!"); }
+    else { println!("GPU Multiexp is NOT supported!"); }
+
     let h = {
         let mut log_d = 0u32; while (1 << log_d) < prover.a.len() { log_d += 1; }
         let mut fft_kern = gpu_fft_supported(log_d).ok();
-        let mut multiexp_kern = gpu_multiexp_supported(log_d).ok();
+
         if fft_kern.is_some() { println!("GPU FFT is supported!"); }
         else { println!("GPU FFT is NOT supported!"); }
-        if multiexp_kern.is_some() { println!("GPU Multiexp is supported!"); }
-        else { println!("GPU Multiexp is NOT supported!"); }
 
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
@@ -240,7 +242,7 @@ where
         // TODO: parallelize if it's even helpful
         let a = Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>());
 
-        multiexp(&worker, params.get_h(a.len())?, FullDensity, a)
+        multiexp(&worker, params.get_h(a.len())?, FullDensity, a, &mut multiexp_kern)
     };
 
     // TODO: parallelize if it's even helpful
@@ -264,6 +266,7 @@ where
         params.get_l(aux_assignment.len())?,
         FullDensity,
         aux_assignment.clone(),
+        &mut multiexp_kern
     );
 
     let a_aux_density_total = prover.a_aux_density.get_total_density();
@@ -276,12 +279,14 @@ where
         a_inputs_source,
         FullDensity,
         input_assignment.clone(),
+        &mut multiexp_kern
     );
     let a_aux = multiexp(
         &worker,
         a_aux_source,
         Arc::new(prover.a_aux_density),
         aux_assignment.clone(),
+        &mut multiexp_kern
     );
 
     let b_input_density = Arc::new(prover.b_input_density);
@@ -297,12 +302,14 @@ where
         b_g1_inputs_source,
         b_input_density.clone(),
         input_assignment.clone(),
+        &mut multiexp_kern
     );
     let b_g1_aux = multiexp(
         &worker,
         b_g1_aux_source,
         b_aux_density.clone(),
         aux_assignment.clone(),
+        &mut multiexp_kern
     );
 
     let (b_g2_inputs_source, b_g2_aux_source) =
@@ -313,8 +320,9 @@ where
         b_g2_inputs_source,
         b_input_density,
         input_assignment,
+        &mut multiexp_kern
     );
-    let b_g2_aux = multiexp(&worker, b_g2_aux_source, b_aux_density, aux_assignment);
+    let b_g2_aux = multiexp(&worker, b_g2_aux_source, b_aux_density, aux_assignment, &mut multiexp_kern);
 
     if vk.delta_g1.is_zero() || vk.delta_g2.is_zero() {
         // If this element is zero, someone is trying to perform a

@@ -257,6 +257,7 @@ pub fn multiexp<Q, D, G, S>(
     bases: S,
     density_map: D,
     exponents: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,
+    kern: &mut Option<gpu::MultiexpKernel>
 ) -> Box<Future<Item = <G as CurveAffine>::Projective, Error = SynthesisError>>
 where
     for<'a> &'a Q: QueryDensity,
