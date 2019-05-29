@@ -7,6 +7,7 @@ use super::error::GPUResult;
 
 static DEFS_SRC : &str = include_str!("multiexp/defs.cl");
 static FIELD_SRC : &str = include_str!("field.cl");
+static EC_SRC : &str = include_str!("multiexp/ec.cl");
 static KERNEL_SRC : &str = include_str!("multiexp/multiexp.cl");
 
 pub struct MultiexpKernel {
@@ -16,7 +17,7 @@ pub struct MultiexpKernel {
 impl MultiexpKernel {
 
     pub fn create(n: u32) -> GPUResult<MultiexpKernel> {
-        let src = format!("{}\n{}\n{}", DEFS_SRC, FIELD_SRC, KERNEL_SRC);
+        let src = format!("{}\n{}\n{}\n{}", DEFS_SRC, FIELD_SRC, EC_SRC, KERNEL_SRC);
         let pq = ProQue::builder().src(src).dims(n).build()?;
         Ok(MultiexpKernel {proque: pq})
     }
