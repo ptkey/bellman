@@ -214,9 +214,9 @@ where
         let mut multiexp_kern = gpu_multiexp_supported(log_d).ok();
         if fft_kern.is_some() { println!("GPU FFT is supported!"); }
         else { println!("GPU FFT is NOT supported!"); }
-        if multiexp_kern.is_some() { println!("multiexp_kern is supported!"); }
-        else { println!("multiexp_kern is NOT supported!"); }
-        
+        if multiexp_kern.is_some() { println!("GPU Multiexp is supported!"); }
+        else { println!("GPU Multiexp is NOT supported!"); }
+
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
         let mut c = EvaluationDomain::from_coeffs(prover.c)?;

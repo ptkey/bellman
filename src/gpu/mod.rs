@@ -7,9 +7,9 @@ mod fft;
 pub use self::fft::*;
 
 #[cfg(feature = "ocl")]
-mod multi_exp;
+mod multiexp;
 #[cfg(feature = "ocl")]
-pub use self::multi_exp::*;
+pub use self::multiexp::*;
 
 #[cfg(not (feature = "ocl"))]
 mod nofft;

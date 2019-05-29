@@ -558,40 +558,8 @@ pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
     else { Err(gpu::GPUError {msg: "GPU FFT is not working well on your machine!".to_string()}) }
 }
 
-pub fn gpu_multiexp_supported(log_d: u32) -> gpu::GPUResult<gpu::Multi_Exp_Kernel> {
-    use std::time::Instant;
-    use paired::bls12_381::{Bls12};
-    use rand::{Rand};
-    use std::cmp;
-    let rng = &mut rand::thread_rng();
-
-    let worker = Worker::new();
-    let log_cpus = worker.log_num_cpus();
-
-    let mut kern = gpu::Multi_Exp_Kernel::create(1 << log_d)?;
-
-    let log_d_test = cmp::min(20, log_d);
-    let d_test = 1 << log_d_test;
-
-    let elems = (0..d_test).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
-    let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
-    let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
-
-    let mut now = Instant::now();
-    //bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d_test)?;
-    let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
-
-    now = Instant::now();
-    if log_d_test <= log_cpus { 
-      //serial_fft(&mut v2.coeffs, &v2.omega, log_d_test); 
-    }
-    else { 
-      // parallel_fft(&mut v2.coeffs, &worker, &v2.omega, log_d_test, log_cpus); 
-    }
-    let cpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
-
-    if v1.coeffs == v2.coeffs && gpu_dur < cpu_dur { Ok(kern) }
-    else { Err(gpu::GPUError {msg: "GPU FFT is not working well on your machine!".to_string()}) }
+pub fn gpu_multiexp_supported(log_d: u32) -> gpu::GPUResult<gpu::MultiexpKernel> {
+    Err(gpu::GPUError {msg: "Not implemented!".to_string()})
 }
 
 #[test]
