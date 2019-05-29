@@ -6,6 +6,7 @@ use paired::{CurveAffine, CurveProjective};
 use std::io;
 use std::iter;
 use std::sync::Arc;
+use gpu;
 
 use super::SynthesisError;
 
@@ -323,6 +324,11 @@ fn test_with_bls12() {
     let fast = multiexp(&pool, (g, 0), FullDensity, v).wait().unwrap();
 
     assert_eq!(naive, fast);
+}
+
+pub fn gpu_multiexp_supported(log_d: u32) -> gpu::GPUResult<gpu::MultiexpKernel> {
+    let mut kern = gpu::MultiexpKernel::create(1 << log_d)?;
+    Ok(kern)
 }
 
 #[test]

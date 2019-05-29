@@ -12,9 +12,9 @@ use super::{ParameterSource, Proof};
 
 use {Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
 
-use domain::{EvaluationDomain, Scalar, gpu_fft_supported, gpu_multiexp_supported};
+use domain::{EvaluationDomain, Scalar, gpu_fft_supported};
 
-use multiexp::{multiexp, DensityTracker, FullDensity};
+use multiexp::{multiexp, DensityTracker, FullDensity, gpu_multiexp_supported};
 
 use multicore::Worker;
 
