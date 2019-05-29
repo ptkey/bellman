@@ -28,6 +28,14 @@ bool gte(field a, field b) {
   return true;
 }
 
+// Equals
+bool eq(field a, field b) {
+  for(int i = 0; i < LIMBS; i++)
+    if(a.val[i] != b.val[i])
+      return false;
+  return true;
+}
+
 // Normal addition
 field add(field a, field b) {
   uint32 carry = 0;
