@@ -12,7 +12,7 @@ use super::{ParameterSource, Proof};
 
 use {Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
 
-use domain::{EvaluationDomain, Scalar, gpu_fft_supported};
+use domain::{EvaluationDomain, Scalar, gpu_fft_supported, gpu_multiexp_supported};
 
 use multiexp::{multiexp, DensityTracker, FullDensity};
 
@@ -210,27 +210,30 @@ where
 
     let h = {
         let mut log_d = 0u32; while (1 << log_d) < prover.a.len() { log_d += 1; }
-        let mut kern = gpu_fft_supported(log_d).ok();
-        if kern.is_some() { println!("GPU FFT is supported!"); }
+        let mut fft_kern = gpu_fft_supported(log_d).ok();
+        let mut multiexp_kern = gpu_multiexp_supported(log_d).ok();
+        if fft_kern.is_some() { println!("GPU FFT is supported!"); }
         else { println!("GPU FFT is NOT supported!"); }
-
+        if multiexp_kern.is_some() { println!("multiexp_kern is supported!"); }
+        else { println!("multiexp_kern is NOT supported!"); }
+        
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
         let mut c = EvaluationDomain::from_coeffs(prover.c)?;
 
-        a.ifft(&worker, &mut kern);
-        a.coset_fft(&worker, &mut kern);
-        b.ifft(&worker, &mut kern);
-        b.coset_fft(&worker, &mut kern);
-        c.ifft(&worker, &mut kern);
-        c.coset_fft(&worker, &mut kern);
+        a.ifft(&worker, &mut fft_kern);
+        a.coset_fft(&worker, &mut fft_kern);
+        b.ifft(&worker, &mut fft_kern);
+        b.coset_fft(&worker, &mut fft_kern);
+        c.ifft(&worker, &mut fft_kern);
+        c.coset_fft(&worker, &mut fft_kern);
 
         a.mul_assign(&worker, &b);
         drop(b);
         a.sub_assign(&worker, &c);
         drop(c);
         a.divide_by_z_on_coset(&worker);
-        a.icoset_fft(&worker, &mut kern);
+        a.icoset_fft(&worker, &mut fft_kern);
         let mut a = a.into_coeffs();
         let a_len = a.len() - 1;
         a.truncate(a_len);

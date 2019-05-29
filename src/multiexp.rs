@@ -324,3 +324,8 @@ fn test_with_bls12() {
 
     assert_eq!(naive, fast);
 }
+
+#[test]
+pub fn gpu_multiexp_consistency() {
+  println!("weeeee");
+}
