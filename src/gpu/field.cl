@@ -138,12 +138,3 @@ field powmodcached(__global field *bases, uint32 exponent) {
   }
   return res;
 }
-
-uint32 bitreverse(uint32 n, uint32 bits) {
-  uint32 r = 0;
-  for(int i = 0; i < bits; i++) {
-    r = (r << 1) | (n & 1);
-    n >>= 1;
-  }
-  return r;
-}

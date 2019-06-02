@@ -1,3 +1,12 @@
+uint32 bitreverse(uint32 n, uint32 bits) {
+  uint32 r = 0;
+  for(int i = 0; i < bits; i++) {
+    r = (r << 1) | (n & 1);
+    n >>= 1;
+  }
+  return r;
+}
+
 __kernel void radix_fft(__global ulong4* src,
                         __global ulong4* dst,
                         __global ulong4* tpq,
