@@ -7,22 +7,16 @@ uint32 bitreverse(uint32 n, uint32 bits) {
   return r;
 }
 
-__kernel void radix_fft(__global ulong4* src,
-                        __global ulong4* dst,
-                        __global ulong4* tpq,
-                        __global ulong4* tom,
-                        __local ulong4* tu,
+__kernel void radix_fft(__global field* x,
+                        __global field* y,
+                        __global field* pq,
+                        __global field* omegas,
+                        __local field* u,
                         uint n,
                         uint lgp,
                         uint deg, // 1=>radix2, 2=>radix4, 3=>radix8, ...
                         uint max_deg)
 {
-  __global field *x = src;
-  __global field *y = dst;
-  __global field *pq = tpq;
-  __global field *omegas = tom;
-  __local field *u = tu;
-
   uint32 lid = get_local_id(0);
   uint32 lsize = get_local_size(0);
   uint32 index = get_group_id(0);
