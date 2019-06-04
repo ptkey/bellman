@@ -107,3 +107,18 @@ projective ec_add(projective a, projective b) {
     return a;
   }
 }
+
+projective ec_mul(affine a, ulong4 b) {
+  ulong *ls = (ulong*)&b;
+  projective p = {ZERO, ONE, ZERO};
+  for(int i = 3; i >= 0; i--) {
+    ulong l = ls[i];
+    for(uint j = 0; j < 64; j++) {
+      p = ec_double(p);
+      if(l & 0x7000000000000000ull)
+        p = ec_add_mixed(p, a);
+      l <<= 1;
+    }
+  }
+  return p;
+}
