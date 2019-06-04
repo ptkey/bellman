@@ -34,7 +34,7 @@ projective ec_double(projective inp) {
   return inp;
 }
 
-projective ec_add(projective a, affine b) {
+projective ec_add_mixed(projective a, affine b) {
   if(b.inf) return a;
 
   if(eq(a.z, ZERO)) {
