@@ -2,6 +2,7 @@ typedef struct {
   field x;
   field y;
   bool inf;
+  uint _; // WARNING: Padding, so that size of struct gets 104 bytes.
 } affine;
 
 typedef struct {
@@ -115,7 +116,7 @@ projective ec_mul(affine a, ulong4 b) {
     ulong l = ls[i];
     for(uint j = 0; j < 64; j++) {
       p = ec_double(p);
-      if(l & 0x7000000000000000ull)
+      if(l >> 63)
         p = ec_add_mixed(p, a);
       l <<= 1;
     }
