@@ -72,3 +72,38 @@ projective ec_add_mixed(projective a, affine b) {
     return ret;
   }
 }
+
+projective ec_add(projective a, projective b) {
+  if(eq(a.z, ZERO)) return b;
+  if(eq(b.z, ZERO)) return a;
+
+  field z1z1 = mulmod(a.z, a.z); // Z1Z1 = Z1^2
+  field z2z2 = mulmod(b.z, b.z); // Z2Z2 = Z2^2
+  field u1 = mulmod(a.x, z2z2); // U1 = X1*Z2Z2
+  field u2 = mulmod(b.x, z1z1); // U2 = X2*Z1Z1
+  field s1 = mulmod(mulmod(a.y, b.z), z2z2); // S1 = Y1*Z2*Z2Z2
+  field s2 = mulmod(mulmod(b.y, a.z), z1z1); // S2 = Y2*Z1*Z1Z1
+
+  if(eq(u1, u2) && eq(s1, s2))
+    return ec_double(a);
+  else {
+    field h = submod(u2, u1); // H = U2-U1
+    field i = addmod(h, h); i = mulmod(i, i); // I = (2*H)^2
+    field j = mulmod(h, i); // J = H*I
+    field r = submod(s2, s1); r = addmod(r, r); // r = 2*(S2-S1)
+    field v = mulmod(u1, i); // V = U1*I
+    a.x = submod(submod(submod(mulmod(r, r), j), v), v); // X3 = r^2 - J - 2*V
+
+    // Y3 = r*(V - X3) - 2*S1*J
+    a.y = mulmod(submod(v, a.x), r);
+    s1 = mulmod(s1, j); s1 = addmod(s1, s1); // S1 = S1 * J * 2
+    a.y = submod(a.y, s1);
+
+    // Z3 = ((Z1+Z2)^2 - Z1Z1 - Z2Z2)*H
+    a.z = addmod(a.z, b.z); a.z = mulmod(a.z, a.z);
+    a.z = submod(submod(a.z, z1z1), z2z2);
+    a.z = mulmod(a.z, h);
+
+    return a;
+  }
+}
