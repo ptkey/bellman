@@ -266,11 +266,22 @@ where
     for<'a> &'a Q: QueryDensity,
     D: Send + Sync + 'static + Clone + AsRef<Q>,
     G: CurveAffine,
-    S: SourceBuilder<G>,
+    S: SourceBuilder<G>
 {
+    if let Some(ref mut k) = kern {
 
-    let bss = bases.clone().get();
-    println!("Num bases: {}, Num exponents: {}", bss.len(), exponents.len());
+        // Extract the density map in an array
+        let mut dm = vec![false; exponents.len()];
+        let mut i = 0;
+        for (&_, d) in exponents.iter().zip(density_map.as_ref().iter()) {
+            dm[i] = d;
+            i += 1;
+        }
+
+        let bss = bases.clone().get();
+        let result = k.multiexp(bss.clone(), exponents.clone(), dm);
+        if result.is_ok() { return Box::new(pool.compute(move || { Ok(result.unwrap()) })); }
+    }
 
     let c = if exponents.len() < 32 {
         3u32
@@ -281,11 +292,11 @@ where
     if let Some(query_size) = density_map.as_ref().get_query_size() {
         // If the density map has a known query size, it should not be
         // inconsistent with the number of exponents.
-
         assert!(query_size == exponents.len());
     }
 
-    multiexp_inner(pool, bases, density_map, exponents, 0, c, true)
+    let result = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
+    return Box::new(pool.compute(move || { Ok(result) }));
 }
 
 #[cfg(test)]

@@ -208,14 +208,14 @@ where
 
     let vk = params.get_vk(prover.input_assignment.len())?;
 
-    let mut multiexp_kern = gpu_multiexp_supported(0).ok();
+    let mut log_d = 0u32; while (1 << log_d) < prover.a.len() { log_d += 1; }
+
+    let mut multiexp_kern = gpu_multiexp_supported(log_d).ok();
     if multiexp_kern.is_some() { println!("GPU Multiexp is supported!"); }
     else { println!("GPU Multiexp is NOT supported!"); }
 
     let h = {
-        let mut log_d = 0u32; while (1 << log_d) < prover.a.len() { log_d += 1; }
         let mut fft_kern = gpu_fft_supported(log_d).ok();
-
         if fft_kern.is_some() { println!("GPU FFT is supported!"); }
         else { println!("GPU FFT is NOT supported!"); }
 
