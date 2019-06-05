@@ -26,6 +26,7 @@ bool get_bit(ulong4 l, uint i) {
 __kernel void batched_multiexp(__global affine *bases,
     __global projective *results,
     __global ulong4 *exps,
+    __global bool *dm,
     uint nbases, uint nexps) {
 
   projective p = {ZERO, ONE, ZERO};

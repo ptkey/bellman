@@ -3,7 +3,7 @@ use ocl::traits::OclPrm;
 use paired::bls12_381::{FrRepr, G1Affine, G1};
 use std::cmp;
 use std::sync::Arc;
-use ocl::prm::Ulong4;
+use ocl::prm::{Ulong4, Uchar};
 use ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
@@ -29,7 +29,8 @@ pub struct MultiexpKernel {
     proque: ProQue,
     g1_base_buffer: Buffer<G1AffineStruct>,
     g1_result_buffer: Buffer<G1ProjectiveStruct>,
-    exp_buffer: Buffer<Ulong4>
+    exp_buffer: Buffer<Ulong4>,
+    dm_buffer: Buffer<Uchar>
 }
 
 impl MultiexpKernel {
@@ -46,8 +47,11 @@ impl MultiexpKernel {
         let resbuff = Buffer::<G1ProjectiveStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
+        let dmbuff = Buffer::<Uchar>::builder().queue(pq.queue().clone())
+            .flags(MemFlags::new().read_write()).len(n)
+            .build()?;
         Ok(MultiexpKernel {proque: pq, g1_base_buffer: g1basebuff, g1_result_buffer: resbuff,
-            exp_buffer: expbuff})
+            exp_buffer: expbuff, dm_buffer: dmbuff})
     }
 
     pub fn multiexp<G>(&mut self,
@@ -66,16 +70,19 @@ impl MultiexpKernel {
         let sz = std::mem::size_of::<G>(); // Trick, used for dispatching between G1 and G2!
         let exps = unsafe { std::mem::transmute::<Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,Arc<Vec<FrRepr>>>(exps) }.to_vec();
         let texps = unsafe { std::mem::transmute::<&[FrRepr], &[Ulong4]>(&exps[..]) };
+        let tdm = unsafe { std::mem::transmute::<&[bool], &[Uchar]>(&dm[..]) };
         if sz == 104 {
             let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<G1Affine>>>(bases) }.to_vec();
             let tbases = unsafe { std::mem::transmute::<&[G1Affine], &[G1AffineStruct]>(&bases[..]) };
             self.g1_base_buffer.write(tbases).enq()?;
             self.exp_buffer.write(texps).enq()?;
+            self.dm_buffer.write(tdm).enq()?;
             let kernel = self.proque.kernel_builder("batched_multiexp")
                 .global_work_size([1])
                 .arg(&self.g1_base_buffer)
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
+                .arg(&self.dm_buffer)
                 .arg(tbases.len() as u32)
                 .arg(texps.len() as u32)
                 .build()?;
