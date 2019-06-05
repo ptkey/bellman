@@ -268,6 +268,7 @@ where
     G: CurveAffine,
     S: SourceBuilder<G>
 {
+    let mut gpu_result = G::Projective::zero();
     if let Some(ref mut k) = kern {
 
         // Extract the density map in an array
@@ -280,7 +281,7 @@ where
 
         let bss = bases.clone().get();
         let result = k.multiexp(bss.clone(), exponents.clone(), dm);
-        if result.is_ok() { return Box::new(pool.compute(move || { Ok(result.unwrap()) })); }
+        if result.is_ok() { gpu_result = result.unwrap(); }
     }
 
     let c = if exponents.len() < 32 {
@@ -295,8 +296,11 @@ where
         assert!(query_size == exponents.len());
     }
 
-    let result = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
-    return Box::new(pool.compute(move || { Ok(result) }));
+    let cpu_result = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
+
+    println!("Multiexp: {}", gpu_result == cpu_result);
+
+    return Box::new(pool.compute(move || { Ok(cpu_result) }));
 }
 
 #[cfg(test)]
