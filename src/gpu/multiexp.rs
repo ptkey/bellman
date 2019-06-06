@@ -97,7 +97,6 @@ impl MultiexpKernel {
                 .arg(&self.exp_buffer)
                 .arg(&self.dm_buffer)
                 .arg(skip as u32)
-                .arg(tbases.len() as u32)
                 .arg(texps.len() as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
@@ -118,7 +117,6 @@ impl MultiexpKernel {
                 .arg(&self.exp_buffer)
                 .arg(&self.dm_buffer)
                 .arg(skip as u32)
-                .arg(tbases.len() as u32)
                 .arg(texps.len() as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
