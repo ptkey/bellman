@@ -32,7 +32,7 @@ pub struct MultiexpKernel {
 impl MultiexpKernel {
 
     pub fn create(n: u32) -> GPUResult<MultiexpKernel> {
-        let src = sources::multiexp();
+        let src = sources::multiexp_kernel();
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let g1basebuff = Buffer::<G1AffineStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
@@ -68,7 +68,7 @@ impl MultiexpKernel {
             self.g1_base_buffer.write(tbases).enq()?;
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
-            let kernel = self.proque.kernel_builder("batched_multiexp")
+            let kernel = self.proque.kernel_builder("G1_batched_multiexp")
                 .global_work_size([1])
                 .arg(&self.g1_base_buffer)
                 .arg(&self.g1_result_buffer)
