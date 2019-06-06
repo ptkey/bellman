@@ -7,11 +7,11 @@ uint32 bitreverse(uint32 n, uint32 bits) {
   return r;
 }
 
-__kernel void radix_fft(__global field* x,
-                        __global field* y,
-                        __global field* pq,
-                        __global field* omegas,
-                        __local field* u,
+__kernel void radix_fft(__global Fr* x,
+                        __global Fr* y,
+                        __global Fr* pq,
+                        __global Fr* omegas,
+                        __local Fr* u,
                         uint n,
                         uint lgp,
                         uint deg, // 1=>radix2, 2=>radix4, 3=>radix8, ...
@@ -34,14 +34,14 @@ __kernel void radix_fft(__global field* x,
   uint32 counte = counts + count / lsize;
 
   //////// ~30% of total time
-  field twiddle = powmodcached(omegas, (n >> lgp >> deg) * k);
+  Fr twiddle = Fr_pow_cached(omegas, (n >> lgp >> deg) * k);
   ////////
 
   //////// ~35% of total time
-  field tmp = powmod(twiddle, counts);
+  Fr tmp = Fr_pow(twiddle, counts);
   for(uint32 i = counts; i < counte; i++) {
-    u[i] = mulmod(tmp, x[i*t]);
-    tmp = mulmod(tmp, twiddle);
+    u[i] = Fr_mul(tmp, x[i*t]);
+    tmp = Fr_mul(tmp, twiddle);
   }
   barrier(CLK_LOCAL_MEM_FENCE);
   ////////
@@ -55,9 +55,9 @@ __kernel void radix_fft(__global field* x,
       uint32 i0 = (i << 1) - di;
       uint32 i1 = i0 + bit;
       tmp = u[i0];
-      u[i0] = addmod(u[i0], u[i1]);
-      u[i1] = submod(tmp, u[i1]);
-      if(di != 0) u[i1] = mulmod(pq[di << rnd << pqshift], u[i1]);
+      u[i0] = Fr_add(u[i0], u[i1]);
+      u[i1] = Fr_sub(tmp, u[i1]);
+      if(di != 0) u[i1] = Fr_mul(pq[di << rnd << pqshift], u[i1]);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);

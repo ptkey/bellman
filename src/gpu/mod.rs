@@ -1,6 +1,9 @@
 mod error;
 pub use self::error::*;
 
+mod sources;
+pub use self::sources::*;
+
 #[cfg(feature = "ocl")]
 mod fft;
 #[cfg(feature = "ocl")]

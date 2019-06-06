@@ -1,16 +1,16 @@
 // Naive multiexp
 
-__kernel void naive_multiexp(__global affine *bases,
-    __global projective *results,
+__kernel void naive_multiexp(__global G1_affine *bases,
+    __global G1_projective *results,
     __global ulong4 *exps,
     __global bool *dm,
     uint skip,
     uint nbases, uint nexps) {
   bases += skip;
-  projective p = {ZERO, ONE, ZERO};
+  G1_projective p = G1_ZERO;
   for(uint i = 0; i < nexps; i++)
     if(dm[i])
-      p = ec_add(p, ec_mul(bases[i], exps[i]));
+      p = G1_add(p, G1_mul(bases[i], exps[i]));
   results[0] = p;
 }
 
@@ -27,21 +27,21 @@ bool get_bit(ulong4 l, uint i) {
     return (l.s3 >> (i - 192)) & 1;
 }
 
-__kernel void batched_multiexp(__global affine *bases,
-    __global projective *results,
+__kernel void batched_multiexp(__global G1_affine *bases,
+    __global G1_projective *results,
     __global ulong4 *exps,
     __global bool *dm,
     uint skip,
     uint nbases, uint nexps) {
   bases += skip;
 
-  projective p = {ZERO, ONE, ZERO};
+  G1_projective p = G1_ZERO;
   for(int i = 255; i >= 0; i--) {
-    p = ec_double(p);
+    p = G1_double(p);
     for(uint j = 0; j < nexps; j++) {
       if(dm[j])
         if(get_bit(exps[j], i))
-          p = ec_add_mixed(p, bases[j]);
+          p = G1_add_mixed(p, bases[j]);
     }
   }
   results[0] = p;
