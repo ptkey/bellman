@@ -1,9 +1,9 @@
 static DEFS_SRC : &str = include_str!("common/defs.cl");
-static FR_SRC : &str = include_str!("fft/Fr.cl");
+static FR_SRC : &str = include_str!("fields/Fr.cl");
 static FIELD_SRC : &str = include_str!("common/field.cl");
 static FFT_SRC : &str = include_str!("fft/fft.cl");
 
-static FQ_SRC : &str = include_str!("multiexp/Fq.cl");
+static FQ_SRC : &str = include_str!("fields/Fq.cl");
 static FIELD2_SRC : &str = include_str!("multiexp/field2.cl");
 static EC_SRC : &str = include_str!("multiexp/ec.cl");
 static MULTIEXP_SRC : &str = include_str!("multiexp/multiexp.cl");
