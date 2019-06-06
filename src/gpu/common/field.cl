@@ -3,19 +3,7 @@
 // Montgomery reduction parameters:
 // B = 2^32 (Because our digits are uint32)
 
-typedef uint uint32;
-typedef ulong uint64;
 typedef struct { uint32 val[LIMBS]; } field;
-
-// Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
-void add_digit(uint32 *res, uint32 num) {
-  uint32 old = *res;
-  *res += num;
-  if(*res < old) {
-    res++;
-    while(++(*(res++)) == 0);
-  }
-}
 
 // Greater than or equal
 bool gte(field a, field b) {

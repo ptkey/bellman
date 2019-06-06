@@ -8,6 +8,7 @@ use ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
 
+static COMMON_DEFS_SRC : &str = include_str!("common/defs.cl");
 static DEFS_SRC : &str = include_str!("multiexp/defs.cl");
 static FIELD_SRC : &str = include_str!("common/field.cl");
 static EC_SRC : &str = include_str!("multiexp/ec.cl");
@@ -36,7 +37,7 @@ pub struct MultiexpKernel {
 impl MultiexpKernel {
 
     pub fn create(n: u32) -> GPUResult<MultiexpKernel> {
-        let src = format!("{}\n{}\n{}\n{}", DEFS_SRC, FIELD_SRC, EC_SRC, KERNEL_SRC);
+        let src = format!("{}\n{}\n{}\n{}\n{}", COMMON_DEFS_SRC, DEFS_SRC, FIELD_SRC, EC_SRC, KERNEL_SRC);
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let g1basebuff = Buffer::<G1AffineStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)

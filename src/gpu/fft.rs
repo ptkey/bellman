@@ -16,6 +16,7 @@ impl FieldStruct {
 }
 unsafe impl OclPrm for FieldStruct { }
 
+static COMMON_DEFS_SRC : &str = include_str!("common/defs.cl");
 static DEFS_SRC : &str = include_str!("fft/defs.cl");
 static FIELD_SRC : &str = include_str!("common/field.cl");
 static KERNEL_SRC : &str = include_str!("fft/fft.cl");
@@ -33,7 +34,7 @@ pub struct FFTKernel {
 impl FFTKernel {
 
     pub fn create(n: u32) -> GPUResult<FFTKernel> {
-        let src = format!("{}\n{}\n{}", DEFS_SRC, FIELD_SRC, KERNEL_SRC);
+        let src = format!("{}\n{}\n{}\n{}", COMMON_DEFS_SRC, DEFS_SRC, FIELD_SRC, KERNEL_SRC);
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let srcbuff = Buffer::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
