@@ -9,6 +9,8 @@ use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
 use super::sources;
 
+const NUM_WORKS : usize = 1024;
+
 #[derive(PartialEq, Debug, Clone, Copy, Default)]
 pub struct FqStruct { vals: [u64; 6] }
 unsafe impl OclPrm for FqStruct { }
@@ -55,13 +57,13 @@ impl MultiexpKernel {
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
         let g1resbuff = Buffer::<G1ProjectiveStruct>::builder().queue(pq.queue().clone())
-            .flags(MemFlags::new().read_write()).len(n)
+            .flags(MemFlags::new().read_write()).len(NUM_WORKS)
             .build()?;
         let g2basebuff = Buffer::<G2AffineStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
         let g2resbuff = Buffer::<G2ProjectiveStruct>::builder().queue(pq.queue().clone())
-            .flags(MemFlags::new().read_write()).len(n)
+            .flags(MemFlags::new().read_write()).len(NUM_WORKS)
             .build()?;
         let dmbuff = Buffer::<Uchar>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
@@ -91,7 +93,7 @@ impl MultiexpKernel {
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
             let kernel = self.proque.kernel_builder("G1_batched_multiexp")
-                .global_work_size([1])
+                .global_work_size([NUM_WORKS])
                 .arg(&self.g1_base_buffer)
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
@@ -100,10 +102,12 @@ impl MultiexpKernel {
                 .arg(texps.len() as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
-            let mut res = [<G as CurveAffine>::Projective::zero()];
+            let mut res = [<G as CurveAffine>::Projective::zero(); NUM_WORKS];
             let mut tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [G1ProjectiveStruct]>(&mut res) };
             self.g1_result_buffer.read(tres).enq()?;
-            return Ok((res[0]))
+            let mut acc = <G as CurveAffine>::Projective::zero();
+            for i in 0..NUM_WORKS { acc.add_assign(&res[i]); }
+            return Ok((acc))
         } else if sz == 200 {
             let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<G2Affine>>>(bases) }.to_vec();
             let tbases = unsafe { std::mem::transmute::<&[G2Affine], &[G2AffineStruct]>(&bases[..]) };
@@ -111,7 +115,7 @@ impl MultiexpKernel {
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
             let kernel = self.proque.kernel_builder("G2_batched_multiexp")
-                .global_work_size([1])
+                .global_work_size([NUM_WORKS])
                 .arg(&self.g2_base_buffer)
                 .arg(&self.g2_result_buffer)
                 .arg(&self.exp_buffer)
@@ -120,10 +124,12 @@ impl MultiexpKernel {
                 .arg(texps.len() as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
-            let mut res = [<G as CurveAffine>::Projective::zero()];
+            let mut res = [<G as CurveAffine>::Projective::zero(); NUM_WORKS];
             let mut tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [G2ProjectiveStruct]>(&mut res) };
             self.g2_result_buffer.read(tres).enq()?;
-            return Ok((res[0]))
+            let mut acc = <G as CurveAffine>::Projective::zero();
+            for i in 0..NUM_WORKS { acc.add_assign(&res[i]); }
+            return Ok((acc))
         }
         else {
             Err(GPUError {msg: "Only Bls12-381 G1 is supported!".to_string()} )
