@@ -9,7 +9,7 @@ use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
 
 static DEFS_SRC : &str = include_str!("multiexp/defs.cl");
-static FIELD_SRC : &str = include_str!("field.cl");
+static FIELD_SRC : &str = include_str!("common/field.cl");
 static EC_SRC : &str = include_str!("multiexp/ec.cl");
 static KERNEL_SRC : &str = include_str!("multiexp/multiexp.cl");
 
