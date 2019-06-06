@@ -268,6 +268,10 @@ where
     S: SourceBuilder<G>
 {
     let mut gpu_result = G::Projective::zero();
+
+    use std::time::Instant;
+
+    let mut now = Instant::now();
     if let Some(ref mut k) = kern {
 
         // Extract the density map in an array
@@ -282,6 +286,7 @@ where
         let result = k.multiexp(bss.clone(), exponents.clone(), dm, skip);
         if result.is_ok() { gpu_result = result.unwrap(); }
     }
+    let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
 
     let c = if exponents.len() < 32 {
         3u32
@@ -295,8 +300,10 @@ where
         assert!(query_size == exponents.len());
     }
 
+    now = Instant::now();
     let cpu_result = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
-    println!("Multiexp: {}", gpu_result == cpu_result);
+    let cpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
+    println!("CPU: {}ms\tGPU: {}ms\tCorrect?: {}", cpu_dur, gpu_dur, gpu_result == cpu_result);
 
     return Box::new(pool.compute(move || { Ok(cpu_result) }));
 }
