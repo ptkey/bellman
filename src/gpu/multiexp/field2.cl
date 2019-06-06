@@ -1,37 +1,37 @@
-#define ZERO2 ((field2){ZERO, ZERO})
-#define ONE2 ((field2){ONE, ZERO})
+#define FIELD2_ZERO ((FIELD2){FIELD_ZERO, FIELD_ZERO})
+#define FIELD2_ONE ((FIELD2){FIELD_ONE, FIELD_ZERO})
 
 typedef struct {
-  field c0;
-  field c1;
-} field2;
+  FIELD c0;
+  FIELD c1;
+} FIELD2;
 
-bool eq2(field2 a, field2 b) {
-  return eq(a.c0, b.c0) && eq(a.c1, b.c1);
+bool FIELD2_eq(FIELD2 a, FIELD2 b) {
+  return FIELD_eq(a.c0, b.c0) && FIELD_eq(a.c1, b.c1);
 }
-field2 negmod2(field2 a) {
-  a.c0 = negmod(a.c0);
-  a.c1 = negmod(a.c1);
+FIELD2 FIELD2_neg(FIELD2 a) {
+  a.c0 = FIELD_neg(a.c0);
+  a.c1 = FIELD_neg(a.c1);
   return a;
 }
-field2 submod2(field2 a, field2 b) {
-  a.c0 = submod(a.c0, b.c0);
-  a.c1 = submod(a.c1, b.c1);
+FIELD2 FIELD2_sub(FIELD2 a, FIELD2 b) {
+  a.c0 = FIELD_sub(a.c0, b.c0);
+  a.c1 = FIELD_sub(a.c1, b.c1);
   return a;
 }
-field2 addmod2(field2 a, field2 b) {
-  a.c0 = addmod(a.c0, b.c0);
-  a.c1 = addmod(a.c1, b.c1);
+FIELD2 FIELD2_add(FIELD2 a, FIELD2 b) {
+  a.c0 = FIELD_add(a.c0, b.c0);
+  a.c1 = FIELD_add(a.c1, b.c1);
   return a;
 }
-field2 mulmod2(field2 a, field2 b) {
-  field aa = mulmod(a.c0, b.c0);
-  field bb = mulmod(a.c1, b.c1);
-  field o = addmod(b.c0, b.c1);
-  a.c1 = addmod(a.c1, a.c0);
-  a.c1 = mulmod(a.c1, o);
-  a.c1 = submod(a.c1, aa);
-  a.c1 = submod(a.c1, bb);
-  a.c0 = submod(aa, bb);
+FIELD2 FIELD2_mul(FIELD2 a, FIELD2 b) {
+  FIELD aa = FIELD_mul(a.c0, b.c0);
+  FIELD bb = FIELD_mul(a.c1, b.c1);
+  FIELD o = FIELD_add(b.c0, b.c1);
+  a.c1 = FIELD_add(a.c1, a.c0);
+  a.c1 = FIELD_mul(a.c1, o);
+  a.c1 = FIELD_sub(a.c1, aa);
+  a.c1 = FIELD_sub(a.c1, bb);
+  a.c0 = FIELD_sub(aa, bb);
   return a;
 }
