@@ -3,10 +3,14 @@
 __kernel void naive_multiexp(__global affine *bases,
     __global projective *results,
     __global ulong4 *exps,
+    __global bool *dm,
+    uint skip,
     uint nbases, uint nexps) {
+  bases += skip;
   projective p = {ZERO, ONE, ZERO};
   for(uint i = 0; i < nexps; i++)
-    p = ec_add(p, ec_mul(bases[i], exps[i]));
+    if(dm[i])
+      p = ec_add(p, ec_mul(bases[i], exps[i]));
   results[0] = p;
 }
 
@@ -27,14 +31,17 @@ __kernel void batched_multiexp(__global affine *bases,
     __global projective *results,
     __global ulong4 *exps,
     __global bool *dm,
+    uint skip,
     uint nbases, uint nexps) {
+  bases += skip;
 
   projective p = {ZERO, ONE, ZERO};
   for(int i = 255; i >= 0; i--) {
     p = ec_double(p);
     for(uint j = 0; j < nexps; j++) {
-      if(get_bit(exps[j], i))
-        p = ec_add_mixed(p, bases[j]);
+      if(dm[j])
+        if(get_bit(exps[j], i))
+          p = ec_add_mixed(p, bases[j]);
     }
   }
   results[0] = p;

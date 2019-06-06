@@ -57,15 +57,10 @@ impl MultiexpKernel {
     pub fn multiexp<G>(&mut self,
             bases: Arc<Vec<G>>,
             exps: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,
-            dm: Vec<bool>)
+            dm: Vec<bool>,
+            skip: usize)
             -> GPUResult<(<G as CurveAffine>::Projective)>
             where G: CurveAffine {
-
-        for d in dm.iter() {
-            if !d {
-                return Err(GPUError {msg: "Only full density map is supported!".to_string()} )
-            }
-        }
 
         let sz = std::mem::size_of::<G>(); // Trick, used for dispatching between G1 and G2!
         let exps = unsafe { std::mem::transmute::<Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,Arc<Vec<FrRepr>>>(exps) }.to_vec();
@@ -83,6 +78,7 @@ impl MultiexpKernel {
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
                 .arg(&self.dm_buffer)
+                .arg(skip as u32)
                 .arg(tbases.len() as u32)
                 .arg(texps.len() as u32)
                 .build()?;

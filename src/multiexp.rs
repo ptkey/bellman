@@ -15,7 +15,7 @@ pub trait SourceBuilder<G: CurveAffine>: Send + Sync + 'static + Clone {
     type Source: Source<G>;
 
     fn new(self) -> Self::Source;
-    fn get(self) -> Arc<Vec<G>>;
+    fn get(self) -> (Arc<Vec<G>>, usize);
 }
 
 /// A source of bases, like an iterator.
@@ -37,7 +37,7 @@ impl<G: CurveAffine> SourceBuilder<G> for (Arc<Vec<G>>, usize) {
         (self.0.clone(), self.1)
     }
 
-    fn get(self) -> Arc<Vec<G>> { self.0.clone() }
+    fn get(self) -> (Arc<Vec<G>>, usize) { (self.0.clone(), self.1) }
 }
 
 impl<G: CurveAffine> Source<G> for (Arc<Vec<G>>, usize) {
@@ -58,7 +58,6 @@ impl<G: CurveAffine> Source<G> for (Arc<Vec<G>>, usize) {
         }
 
         to.add_assign_mixed(&self.0[self.1]);
-
         self.1 += 1;
 
         Ok(())
@@ -279,8 +278,8 @@ where
             i += 1;
         }
 
-        let bss = bases.clone().get();
-        let result = k.multiexp(bss.clone(), exponents.clone(), dm);
+        let (bss, skip) = bases.clone().get();
+        let result = k.multiexp(bss.clone(), exponents.clone(), dm, skip);
         if result.is_ok() { gpu_result = result.unwrap(); }
     }
 
@@ -297,7 +296,6 @@ where
     }
 
     let cpu_result = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
-
     println!("Multiexp: {}", gpu_result == cpu_result);
 
     return Box::new(pool.compute(move || { Ok(cpu_result) }));
