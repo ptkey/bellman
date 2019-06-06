@@ -1,19 +1,3 @@
-// Naive multiexp
-
-__kernel void POINT_naive_multiexp(__global POINT_affine *bases,
-    __global POINT_projective *results,
-    __global ulong4 *exps,
-    __global bool *dm,
-    uint skip,
-    uint n) {
-  bases += skip;
-  POINT_projective p = POINT_ZERO;
-  for(uint i = 0; i < n; i++)
-    if(dm[i])
-      p = POINT_add(p, POINT_mul(bases[i], exps[i]));
-  results[0] = p;
-}
-
 /* Batched multiexp */
 
 __kernel void POINT_batched_multiexp(__global POINT_affine *bases,

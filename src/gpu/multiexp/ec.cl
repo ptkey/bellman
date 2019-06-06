@@ -110,18 +110,3 @@ POINT_projective POINT_add(POINT_projective a, POINT_projective b) {
     return a;
   }
 }
-
-POINT_projective POINT_mul(POINT_affine a, ulong4 b) {
-  ulong *ls = (ulong*)&b;
-  POINT_projective p = POINT_ZERO;
-  for(int i = 3; i >= 0; i--) {
-    ulong l = ls[i];
-    for(uint j = 0; j < 64; j++) {
-      p = POINT_double(p);
-      if(l >> 63)
-        p = POINT_add_mixed(p, a);
-      l <<= 1;
-    }
-  }
-  return p;
-}
