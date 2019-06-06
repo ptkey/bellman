@@ -1,6 +1,6 @@
 use ocl::{ProQue, Buffer, MemFlags};
 use ocl::traits::OclPrm;
-use paired::bls12_381::{FrRepr, G1Affine, G1, G2Affine, G2};
+use paired::bls12_381::{Fq, FrRepr, G1Affine, G1, G2Affine, G2};
 use std::cmp;
 use std::sync::Arc;
 use ocl::prm::{Ulong4, Uchar};
@@ -48,7 +48,7 @@ pub struct MultiexpKernel {
 impl MultiexpKernel {
 
     pub fn create(n: u32) -> GPUResult<MultiexpKernel> {
-        let src = sources::multiexp_kernel();
+        let src = sources::multiexp_kernel::<Fq>();
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let g1basebuff = Buffer::<G1AffineStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)

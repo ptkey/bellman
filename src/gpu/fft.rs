@@ -31,7 +31,7 @@ pub struct FFTKernel {
 impl FFTKernel {
 
     pub fn create(n: u32) -> GPUResult<FFTKernel> {
-        let src = sources::fft_kernel();
+        let src = sources::fft_kernel::<Fr>();
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let srcbuff = Buffer::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
