@@ -7,6 +7,7 @@ use std::io;
 use std::iter;
 use std::sync::Arc;
 use gpu;
+use paired::Engine;
 
 use super::SynthesisError;
 
@@ -259,7 +260,7 @@ pub fn multiexp<Q, D, G, S>(
     bases: S,
     density_map: D,
     exponents: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,
-    kern: &mut Option<gpu::MultiexpKernel>
+    kern: &mut Option<gpu::MultiexpKernel<G::Engine>>
 ) -> Box<Future<Item = <G as CurveAffine>::Projective, Error = SynthesisError>>
 where
     for<'a> &'a Q: QueryDensity,
@@ -354,8 +355,8 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-pub fn gpu_multiexp_supported(log_d: u32) -> gpu::GPUResult<gpu::MultiexpKernel> {
-    let mut kern = gpu::MultiexpKernel::create(1 << log_d)?;
+pub fn gpu_multiexp_supported<E>(log_d: u32) -> gpu::GPUResult<gpu::MultiexpKernel<E>> where E: Engine {
+    let mut kern = gpu::MultiexpKernel::<E>::create(1 << log_d)?;
     Ok(kern)
 }
 

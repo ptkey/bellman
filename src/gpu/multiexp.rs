@@ -1,11 +1,12 @@
 use ocl::{ProQue, Buffer, MemFlags};
 use ocl::traits::OclPrm;
-use paired::bls12_381::{Fq, FrRepr, G1Affine, G1, G2Affine, G2};
+use paired::Engine;
 use std::cmp;
 use std::sync::Arc;
 use ocl::prm::{Ulong4, Uchar};
 use ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use paired::{CurveAffine, CurveProjective};
+use std::marker::PhantomData;
 use super::error::{GPUResult, GPUError};
 use super::sources;
 
@@ -35,20 +36,21 @@ unsafe impl OclPrm for G2AffineStruct { }
 pub struct G2ProjectiveStruct { x: Fq2Struct, y: Fq2Struct, z: Fq2Struct }
 unsafe impl OclPrm for G2ProjectiveStruct { }
 
-pub struct MultiexpKernel {
+pub struct MultiexpKernel<E> where E: Engine {
     proque: ProQue,
     g1_base_buffer: Buffer<G1AffineStruct>,
     g1_result_buffer: Buffer<G1ProjectiveStruct>,
     g2_base_buffer: Buffer<G2AffineStruct>,
     g2_result_buffer: Buffer<G2ProjectiveStruct>,
     exp_buffer: Buffer<Ulong4>,
-    dm_buffer: Buffer<Uchar>
+    dm_buffer: Buffer<Uchar>,
+    field_type: PhantomData<E>
 }
 
-impl MultiexpKernel {
+impl<E> MultiexpKernel<E> where E: Engine {
 
-    pub fn create(n: u32) -> GPUResult<MultiexpKernel> {
-        let src = sources::multiexp_kernel::<Fq>();
+    pub fn create(n: u32) -> GPUResult<MultiexpKernel<E>> {
+        let src = sources::multiexp_kernel::<E::Fq>();
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let g1basebuff = Buffer::<G1AffineStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
@@ -71,7 +73,8 @@ impl MultiexpKernel {
         Ok(MultiexpKernel {proque: pq,
             g1_base_buffer: g1basebuff, g1_result_buffer: g1resbuff,
             g2_base_buffer: g2basebuff, g2_result_buffer: g2resbuff,
-            exp_buffer: expbuff, dm_buffer: dmbuff})
+            exp_buffer: expbuff, dm_buffer: dmbuff,
+            field_type: PhantomData})
     }
 
     pub fn multiexp<G>(&mut self,
@@ -83,12 +86,12 @@ impl MultiexpKernel {
             where G: CurveAffine {
 
         let sz = std::mem::size_of::<G>(); // Trick, used for dispatching between G1 and G2!
-        let exps = unsafe { std::mem::transmute::<Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,Arc<Vec<FrRepr>>>(exps) }.to_vec();
-        let texps = unsafe { std::mem::transmute::<&[FrRepr], &[Ulong4]>(&exps[..]) };
+        let exps = unsafe { std::mem::transmute::<Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,Arc<Vec<<E::Fr as PrimeField>::Repr>>>(exps) }.to_vec();
+        let texps = unsafe { std::mem::transmute::<&[<E::Fr as PrimeField>::Repr], &[Ulong4]>(&exps[..]) };
         let tdm = unsafe { std::mem::transmute::<&[bool], &[Uchar]>(&dm[..]) };
         if sz == 104 {
-            let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<G1Affine>>>(bases) }.to_vec();
-            let tbases = unsafe { std::mem::transmute::<&[G1Affine], &[G1AffineStruct]>(&bases[..]) };
+            let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<E::G1Affine>>>(bases) }.to_vec();
+            let tbases = unsafe { std::mem::transmute::<&[E::G1Affine], &[G1AffineStruct]>(&bases[..]) };
             self.g1_base_buffer.write(tbases).enq()?;
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
@@ -109,8 +112,8 @@ impl MultiexpKernel {
             for i in 0..NUM_WORKS { acc.add_assign(&res[i]); }
             return Ok((acc))
         } else if sz == 200 {
-            let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<G2Affine>>>(bases) }.to_vec();
-            let tbases = unsafe { std::mem::transmute::<&[G2Affine], &[G2AffineStruct]>(&bases[..]) };
+            let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<E::G2Affine>>>(bases) }.to_vec();
+            let tbases = unsafe { std::mem::transmute::<&[E::G2Affine], &[G2AffineStruct]>(&bases[..]) };
             self.g2_base_buffer.write(tbases).enq()?;
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
