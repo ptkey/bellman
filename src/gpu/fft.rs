@@ -55,8 +55,8 @@ impl<F> FFTKernel<F> where F: PrimeField {
                       field_type: PhantomData})
     }
 
-    fn radix_fft_round(&mut self, a: &mut [FieldStruct], lgn: u32, lgp: u32, deg: u32, max_deg: u32, in_src: bool) -> ocl::Result<()> {
-        let n = 1 << lgn;
+    fn radix_fft_round(&mut self, lgn: u32, lgp: u32, deg: u32, max_deg: u32, in_src: bool) -> ocl::Result<()> {
+        let n = 1u32 << lgn;
         let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
         let kernel = self.proque.kernel_builder("radix_fft")
             .global_work_size([n >> deg << lwsd])
@@ -66,7 +66,7 @@ impl<F> FFTKernel<F> where F: PrimeField {
             .arg(&self.fft_pq_buffer)
             .arg(&self.fft_omg_buffer)
             .arg_local::<FieldStruct>(1 << deg)
-            .arg(a.len() as u32)
+            .arg(n)
             .arg(lgp)
             .arg(deg)
             .arg(max_deg)
@@ -111,7 +111,7 @@ impl<F> FFTKernel<F> where F: PrimeField {
         let mut lgp = 0u32;
         while lgp < lgn {
             let deg = cmp::min(max_deg, lgn - lgp);
-            self.radix_fft_round(ta, lgn, lgp, deg, max_deg, in_src)?;
+            self.radix_fft_round(lgn, lgp, deg, max_deg, in_src)?;
             lgp += deg;
             in_src = !in_src;
         }
