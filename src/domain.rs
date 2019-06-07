@@ -77,11 +77,11 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         })
     }
 
-    pub fn fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>) {
+    pub fn fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E::Fr>>) {
         best_fft(kern, &mut self.coeffs, worker, &self.omega, self.exp);
     }
 
-    pub fn ifft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>) {
+    pub fn ifft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E::Fr>>) {
         best_fft(kern, &mut self.coeffs, worker, &self.omegainv, self.exp);
 
         worker
@@ -115,12 +115,12 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             .unwrap();
     }
 
-    pub fn coset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>) {
+    pub fn coset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E::Fr>>) {
         self.distribute_powers(worker, E::Fr::multiplicative_generator());
         self.fft(worker, kern);
     }
 
-    pub fn icoset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel>) {
+    pub fn icoset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E::Fr>>) {
         let geninv = self.geninv;
 
         self.ifft(worker, kern);
@@ -270,10 +270,10 @@ impl<E: Engine> Group<E> for Scalar<E> {
     }
 }
 
-fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
+fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel<E::Fr>>, a: &mut [T], worker: &Worker, omega: &E::Fr, log_n: u32)
 {
     if let Some(ref mut k) = kern {
-        bls12_gpu_fft(k, a, omega, log_n).expect("GPU FFT failed!");
+        gpu_fft(k, a, omega, log_n).expect("GPU FFT failed!");
     } else {
         let log_cpus = worker.log_num_cpus();
         if log_n <= log_cpus {
@@ -284,14 +284,10 @@ fn best_fft<E: Engine, T: Group<E>>(kern: &mut Option<gpu::FFTKernel>, a: &mut [
     }
 }
 
-use paired::bls12_381::Fr;
-
-pub fn bls12_gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel, a: &mut [T], omega: &E::Fr, log_n: u32) -> gpu::GPUResult<()>
+pub fn gpu_fft<E: Engine, T: Group<E>>(kern: &mut gpu::FFTKernel<E::Fr>, a: &mut [T], omega: &E::Fr, log_n: u32) -> gpu::GPUResult<()>
 {
-    // Inputs are all in montgomery form
-    let ta = unsafe { std::mem::transmute::<&mut [T], &mut [Fr]>(a) };
-    let tomega = unsafe { std::mem::transmute::<&E::Fr, &Fr>(omega) };
-    kern.radix_fft(ta, tomega, log_n)?;
+    let a = unsafe { std::mem::transmute::<&mut [T], &mut [E::Fr]>(a) };
+    kern.radix_fft(a, omega, log_n)?;
     Ok(())
 }
 
@@ -526,9 +522,8 @@ fn parallel_fft_consistency() {
     test_consistency::<Bls12, _>(rng);
 }
 
-pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
+pub fn gpu_fft_supported<E>(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel<E::Fr>> where E: Engine {
     use std::time::Instant;
-    use paired::bls12_381::{Bls12};
     use rand::{Rand};
     use std::cmp;
     let rng = &mut rand::thread_rng();
@@ -536,17 +531,17 @@ pub fn gpu_fft_supported(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel> {
     let worker = Worker::new();
     let log_cpus = worker.log_num_cpus();
 
-    let mut kern = gpu::FFTKernel::create(1 << log_d)?;
+    let mut kern = gpu::FFTKernel::<E::Fr>::create(1 << log_d)?;
 
     let log_d_test = cmp::min(20, log_d);
     let d_test = 1 << log_d_test;
 
-    let elems = (0..d_test).map(|_| Scalar::<Bls12>(Fr::rand(rng))).collect::<Vec<_>>();
+    let elems = (0..d_test).map(|_| Scalar::<E>(E::Fr::rand(rng))).collect::<Vec<_>>();
     let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
     let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
 
     let mut now = Instant::now();
-    bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d_test)?;
+    gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d_test)?;
     let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
 
     now = Instant::now();
@@ -579,7 +574,7 @@ pub fn gpu_fft_consistency() {
         println!("Testing FFT for {} elements...", d);
 
         let mut now = Instant::now();
-        bls12_gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d).expect("GPU FFT failed!");
+        gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_d).expect("GPU FFT failed!");
         let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
         println!("GPU took {}ms.", gpu_dur);
 

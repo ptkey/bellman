@@ -215,7 +215,7 @@ where
     else { println!("GPU Multiexp is NOT supported!"); }
 
     let h = {
-        let mut fft_kern = gpu_fft_supported(log_d).ok();
+        let mut fft_kern = gpu_fft_supported::<E>(log_d).ok();
         if fft_kern.is_some() { println!("GPU FFT is supported!"); }
         else { println!("GPU FFT is NOT supported!"); }
 

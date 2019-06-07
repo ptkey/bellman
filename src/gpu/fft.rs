@@ -1,10 +1,10 @@
 use ocl::{ProQue, Buffer, MemFlags};
 use ocl::traits::OclPrm;
-use paired::bls12_381::Fr;
 use std::cmp;
-use ff::Field;
+use ff::PrimeField;
 use super::error::GPUResult;
 use super::sources;
+use std::marker::PhantomData;
 
 #[derive(PartialEq, Debug, Clone, Copy, Default)]
 struct FieldStruct {
@@ -20,18 +20,19 @@ unsafe impl OclPrm for FieldStruct { }
 const MAX_RADIX_DEGREE : u32 = 8; // Radix2
 const MAX_LOCAL_WORK_SIZE_DEGREE : u32 = 7; // 1
 
-pub struct FFTKernel {
+pub struct FFTKernel<F> {
     proque: ProQue,
     fft_src_buffer: Buffer<FieldStruct>,
     fft_dst_buffer: Buffer<FieldStruct>,
     fft_pq_buffer: Buffer<FieldStruct>,
-    fft_omg_buffer: Buffer<FieldStruct>
+    fft_omg_buffer: Buffer<FieldStruct>,
+    field_type: PhantomData<F>
 }
 
-impl FFTKernel {
+impl<F> FFTKernel<F> where F: PrimeField {
 
-    pub fn create(n: u32) -> GPUResult<FFTKernel> {
-        let src = sources::fft_kernel::<Fr>();
+    pub fn create(n: u32) -> GPUResult<FFTKernel::<F>> {
+        let src = sources::fft_kernel::<F>();
         let pq = ProQue::builder().src(src).dims(n).build()?;
         let srcbuff = Buffer::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
@@ -50,7 +51,8 @@ impl FFTKernel {
                       fft_src_buffer: srcbuff,
                       fft_dst_buffer: dstbuff,
                       fft_pq_buffer: pqbuff,
-                      fft_omg_buffer: omgbuff})
+                      fft_omg_buffer: omgbuff,
+                      field_type: PhantomData})
     }
 
     fn radix_fft_round(&mut self, a: &mut [FieldStruct], lgn: u32, lgp: u32, deg: u32, max_deg: u32, in_src: bool) -> ocl::Result<()> {
@@ -73,11 +75,11 @@ impl FFTKernel {
         Ok(())
     }
 
-    fn setup_pq(&mut self, omega: &Fr, n: usize, max_deg: u32) -> ocl::Result<()>  {
+    fn setup_pq(&mut self, omega: &F, n: usize, max_deg: u32) -> ocl::Result<()>  {
         let mut tpq = vec![FieldStruct::zero(); 1 << max_deg >> 1];
-        let mut pq = unsafe { std::mem::transmute::<&mut [FieldStruct], &mut [Fr]>(&mut tpq) };
+        let mut pq = unsafe { std::mem::transmute::<&mut [FieldStruct], &mut [F]>(&mut tpq) };
         let tw = omega.pow([(n >> max_deg) as u64]);
-        pq[0] = Fr::one();
+        pq[0] = F::one();
         if max_deg > 1 {
             pq[1] = tw;
             for i in 2..(1 << max_deg >> 1) {
@@ -88,7 +90,7 @@ impl FFTKernel {
         self.fft_pq_buffer.write(&tpq).enq()?;
 
         let mut tom = vec![FieldStruct::zero(); 32];
-        let mut om = unsafe { std::mem::transmute::<&mut [FieldStruct], &mut [Fr]>(&mut tom) };
+        let mut om = unsafe { std::mem::transmute::<&mut [FieldStruct], &mut [F]>(&mut tom) };
         om[0] = *omega;
         for i in 1..32 { om[i] = om[i-1].pow([2u64]); }
         self.fft_omg_buffer.write(&tom).enq()?;
@@ -96,10 +98,10 @@ impl FFTKernel {
         Ok(())
     }
 
-    pub fn radix_fft(&mut self, a: &mut [Fr], omega: &Fr, lgn: u32) -> GPUResult<()> {
+    pub fn radix_fft(&mut self, a: &mut [F], omega: &F, lgn: u32) -> GPUResult<()> {
         let n = 1 << lgn;
 
-        let ta = unsafe { std::mem::transmute::<&mut [Fr], &mut [FieldStruct]>(a) };
+        let ta = unsafe { std::mem::transmute::<&mut [F], &mut [FieldStruct]>(a) };
 
         let max_deg = cmp::min(MAX_RADIX_DEGREE, lgn);
         self.setup_pq(omega, n, max_deg)?;
