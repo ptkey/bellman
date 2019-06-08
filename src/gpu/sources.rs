@@ -30,9 +30,9 @@ fn params<F>(name: &str) -> String where F: PrimeField {
     let limbs = one.len();
     let inv = calc_inv(p[0]);
     let limbs_def = format!("#define {}_LIMBS {}", name, limbs);
-    let p_def = format!("#define {}_P (({}){{{}}})", name, name, join(p, ", "));
-    let one_def = format!("#define {}_ONE (({}){{{}}})", name, name, join(one, ", "));
-    let zero_def = format!("#define {}_ZERO (({}){{{}}})", name, name, join(vec![0u32; limbs], ", "));
+    let p_def = format!("#define {}_P (({}){{ {{ {} }} }})", name, name, join(p, ", "));
+    let one_def = format!("#define {}_ONE (({}){{ {{ {} }} }})", name, name, join(one, ", "));
+    let zero_def = format!("#define {}_ZERO (({}){{ {{ {} }} }})", name, name, join(vec![0u32; limbs], ", "));
     let inv_def = format!("#define {}_INV {}", name, inv);
     return format!("{}\n{}\n{}\n{}\n{}", limbs_def, one_def, p_def, zero_def, inv_def);
 }
