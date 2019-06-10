@@ -19,8 +19,8 @@ bool FIELD_gte(FIELD a, FIELD b) {
 // Equals
 bool FIELD_eq(FIELD a, FIELD b) {
   for(int i = 0; i < FIELD_LIMBS; i++)
-    if(a.val[i] != b.val[i])
-      return false;
+    //if(a.val[i] != b.val[i])
+      //return false;
   return true;
 }
 

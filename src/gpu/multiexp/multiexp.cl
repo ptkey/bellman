@@ -7,21 +7,15 @@ __kernel void POINT_batched_multiexp(__global POINT_affine *bases,
     uint skip,
     uint n) {
   uint32 work = get_global_id(0);
-  uint32 works = get_global_size(0);
-
-  uint len = (uint)ceil(n / (float)works);
-  uint32 nstart = len * work;
-  uint32 nend = min(nstart + len, n);
 
   bases += skip;
   POINT_projective p = POINT_ZERO;
   for(int i = 255; i >= 0; i--) {
     p = POINT_double(p);
-    for(uint j = nstart; j < nend; j++) {
-      if(dm[j])
-        if(get_bit(exps[j], i))
-          p = POINT_add_mixed(p, bases[j]);
-    }
+    if(dm[work])
+      if(get_bit(exps[work], i))
+        p = POINT_add_mixed(p, bases[work]);
+
   }
   results[work] = p;
 }

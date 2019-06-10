@@ -210,6 +210,7 @@ where
 
     let mut log_d = 0u32; while (1 << log_d) < prover.a.len() { log_d += 1; }
 
+    let mut multiexp_kern2 = gpu_multiexp_supported::<E>(log_d).expect("fail");
     let mut multiexp_kern = gpu_multiexp_supported::<E>(log_d).ok();
     if multiexp_kern.is_some() { println!("GPU Multiexp is supported!"); }
     else { println!("GPU Multiexp is NOT supported!"); }
