@@ -59,13 +59,13 @@ impl<E> MultiexpKernel<E> where E: Engine {
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
         let g1resbuff = Buffer::<G1ProjectiveStruct>::builder().queue(pq.queue().clone())
-            .flags(MemFlags::new().read_write()).len(NUM_WORKS)
+            .flags(MemFlags::new().read_write()).len(n)
             .build()?;
         let g2basebuff = Buffer::<G2AffineStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
         let g2resbuff = Buffer::<G2ProjectiveStruct>::builder().queue(pq.queue().clone())
-            .flags(MemFlags::new().read_write()).len(NUM_WORKS)
+            .flags(MemFlags::new().read_write()).len(n)
             .build()?;
         let dmbuff = Buffer::<Uchar>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
@@ -89,6 +89,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
         let exps = unsafe { std::mem::transmute::<Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,Arc<Vec<<E::Fr as PrimeField>::Repr>>>(exps) }.to_vec();
         let texps = unsafe { std::mem::transmute::<&[<E::Fr as PrimeField>::Repr], &[Ulong4]>(&exps[..]) };
         let tdm = unsafe { std::mem::transmute::<&[bool], &[Uchar]>(&dm[..]) };
+        let n = texps.len();
         if sz == 104 {
             let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<E::G1Affine>>>(bases) }.to_vec();
             let tbases = unsafe { std::mem::transmute::<&[E::G1Affine], &[G1AffineStruct]>(&bases[..]) };
@@ -96,7 +97,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
             let kernel = self.proque.kernel_builder("G1_batched_multiexp")
-                .global_work_size([NUM_WORKS])
+                .global_work_size([n])
                 .arg(&self.g1_base_buffer)
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
@@ -105,11 +106,11 @@ impl<E> MultiexpKernel<E> where E: Engine {
                 .arg(texps.len() as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
-            let mut res = [<G as CurveAffine>::Projective::zero(); NUM_WORKS];
+            let mut res = vec![<G as CurveAffine>::Projective::zero(); n];
             let mut tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [G1ProjectiveStruct]>(&mut res) };
             self.g1_result_buffer.read(tres).enq()?;
             let mut acc = <G as CurveAffine>::Projective::zero();
-            for i in 0..NUM_WORKS { acc.add_assign(&res[i]); }
+            for i in 0..n { acc.add_assign(&res[i]); }
             return Ok((acc))
         } else if sz == 200 {
             let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<E::G2Affine>>>(bases) }.to_vec();
@@ -118,7 +119,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
             let kernel = self.proque.kernel_builder("G2_batched_multiexp")
-                .global_work_size([NUM_WORKS])
+                .global_work_size([n])
                 .arg(&self.g2_base_buffer)
                 .arg(&self.g2_result_buffer)
                 .arg(&self.exp_buffer)
@@ -127,11 +128,11 @@ impl<E> MultiexpKernel<E> where E: Engine {
                 .arg(texps.len() as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
-            let mut res = [<G as CurveAffine>::Projective::zero(); NUM_WORKS];
+            let mut res = vec![<G as CurveAffine>::Projective::zero(); n];
             let mut tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [G2ProjectiveStruct]>(&mut res) };
             self.g2_result_buffer.read(tres).enq()?;
             let mut acc = <G as CurveAffine>::Projective::zero();
-            for i in 0..NUM_WORKS { acc.add_assign(&res[i]); }
+            for i in 0..n { acc.add_assign(&res[i]); }
             return Ok((acc))
         }
         else {
