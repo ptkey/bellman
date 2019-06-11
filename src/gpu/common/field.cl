@@ -5,6 +5,11 @@
 
 typedef struct { uint32 val[FIELD_LIMBS]; } FIELD;
 
+void print(FIELD v) {
+  printf("%u %u %u %u %u %u %u %u %u %u %u %u\n",
+    v.val[11],v.val[10],v.val[9],v.val[8],v.val[7],v.val[6],v.val[5],v.val[4],v.val[3],v.val[2],v.val[1],v.val[0]);
+}
+
 // Greater than or equal
 bool FIELD_gte(FIELD a, FIELD b) {
   for(int i = FIELD_LIMBS - 1; i >= 0; i--){
@@ -19,8 +24,8 @@ bool FIELD_gte(FIELD a, FIELD b) {
 // Equals
 bool FIELD_eq(FIELD a, FIELD b) {
   for(int i = 0; i < FIELD_LIMBS; i++)
-    //if(a.val[i] != b.val[i])
-      //return false;
+    if(a.val[i] != b.val[i])
+      return false;
   return true;
 }
 
@@ -46,6 +51,14 @@ FIELD FIELD_sub_(FIELD a, FIELD b) {
   return a;
 }
 
+uint64 hi(uint64 x) {
+    return x >> 32;
+}
+
+uint64 lo(uint64 x) {
+    return ((1L << 32) - 1) & x;
+}
+
 // Modular multiplication
 FIELD FIELD_mul(FIELD a, FIELD b) {
   FIELD p = FIELD_P; // TODO: Find a solution for this
@@ -53,7 +66,7 @@ FIELD FIELD_mul(FIELD a, FIELD b) {
   // Long multiplication
   uint32 res[FIELD_LIMBS * 2] = {0};
   for(uint32 i = 0; i < FIELD_LIMBS; i++) {
-    uint32 carry = 0;
+    uint32 carry = (0);
     for(uint32 j = 0; j < FIELD_LIMBS; j++) {
       uint64 product = (uint64)a.val[i] * b.val[j] + res[i + j] + carry;
       res[i + j] = product & 0xffffffff;

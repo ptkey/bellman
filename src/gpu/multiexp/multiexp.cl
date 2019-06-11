@@ -10,12 +10,8 @@ __kernel void POINT_batched_multiexp(__global POINT_affine *bases,
 
   bases += skip;
   POINT_projective p = POINT_ZERO;
-  for(int i = 255; i >= 0; i--) {
-    p = POINT_double(p);
-    if(dm[work])
-      if(get_bit(exps[work], i))
-        p = POINT_add_mixed(p, bases[work]);
+  //p = POINT_add_mixed(p, bases[work]);
+  FIELD t = FIELD_mul(bases[work].x, bases[work].x);
 
-  }
   results[work] = p;
 }

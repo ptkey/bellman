@@ -60,8 +60,9 @@ fn ec(field: &str, point: &str) -> String {
         .replace("POINT", point);
 }
 
-fn multiexp(point: &str) -> String {
+fn multiexp(field: &str, point: &str) -> String {
     return String::from(MULTIEXP_SRC)
+        .replace("FIELD", field)
         .replace("POINT", point);
 }
 
@@ -72,8 +73,8 @@ pub fn fft_kernel<F>() -> String where F: PrimeField {
 }
 
 pub fn multiexp_kernel<F>() -> String where F: PrimeField {
-    return String::from(format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
+    return String::from(format!("{}\n{}\n{}\n{}\n{}\n{}",
         DEFS_SRC,
-        field::<F>("Fq"), ec("Fq", "G1"), multiexp("G1"),
-        field2("Fq2", "Fq"), ec("Fq2", "G2"), multiexp("G2")));
+        field::<F>("Fq"), ec("Fq", "G1"), multiexp("Fq","G1"),
+        field2("Fq2", "Fq"), ec("Fq2", "G2")));
 }

@@ -38,42 +38,9 @@ POINT_projective POINT_double(POINT_projective inp) {
 }
 
 POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
-  if(b.inf) return a;
 
-  if(FIELD_eq(a.z, FIELD_ZERO)) {
-    a.x = b.x;
-    a.y = b.y;
-    a.z = FIELD_ONE;
-    return a;
-  }
+  FIELD z1z1 = FIELD_mul(b.y, b.x);
 
-  FIELD z1z1 = FIELD_mul(a.z, a.z);
-  FIELD u2 = FIELD_mul(b.x, z1z1);
-  FIELD s2 = FIELD_mul(FIELD_mul(b.y, a.z), z1z1);
-
-  if(FIELD_eq(a.x, u2) && FIELD_eq(b.y, s2))
-    return POINT_double(a);
-  else {
-    FIELD h = FIELD_sub(u2, a.x); // H = U2-X1
-    FIELD hh = FIELD_mul(h, h); // HH = H^2
-    FIELD i = FIELD_add(hh, hh); i = FIELD_add(i, i); // I = 4*HH
-    FIELD j = FIELD_mul(h, i); // J = H*I
-    FIELD r = FIELD_sub(s2, a.y); r = FIELD_add(r, r); // r = 2*(S2-Y1)
-    FIELD v = FIELD_mul(a.x, i);
-
-    POINT_projective ret;
-
-     // X3 = r^2 - J - 2*V
-    ret.x = FIELD_sub(FIELD_sub(FIELD_mul(r, r), j), FIELD_add(v, v));
-
-     // Y3 = r*(V-X3)-2*Y1*J
-    j = FIELD_mul(a.y, j); j = FIELD_add(j, j);
-    ret.y = FIELD_sub(FIELD_mul(FIELD_sub(v, ret.x), r), j);
-
-    // Z3 = (Z1+H)^2-Z1Z1-HH
-    ret.z = FIELD_add(a.z, h); ret.z = FIELD_sub(FIELD_sub(FIELD_mul(ret.z, ret.z), z1z1), hh);
-    return ret;
-  }
 }
 
 POINT_projective POINT_add(POINT_projective a, POINT_projective b) {

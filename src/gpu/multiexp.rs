@@ -113,26 +113,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
             for i in 0..n { acc.add_assign(&res[i]); }
             return Ok((acc))
         } else if sz == 200 {
-            let bases = unsafe { std::mem::transmute::<Arc<Vec<G>>,Arc<Vec<E::G2Affine>>>(bases) }.to_vec();
-            let tbases = unsafe { std::mem::transmute::<&[E::G2Affine], &[G2AffineStruct]>(&bases[..]) };
-            self.g2_base_buffer.write(tbases).enq()?;
-            self.exp_buffer.write(texps).enq()?;
-            self.dm_buffer.write(tdm).enq()?;
-            let kernel = self.proque.kernel_builder("G2_batched_multiexp")
-                .global_work_size([n])
-                .arg(&self.g2_base_buffer)
-                .arg(&self.g2_result_buffer)
-                .arg(&self.exp_buffer)
-                .arg(&self.dm_buffer)
-                .arg(skip as u32)
-                .arg(texps.len() as u32)
-                .build()?;
-            unsafe { kernel.enq()?; }
-            let mut res = vec![<G as CurveAffine>::Projective::zero(); n];
-            let mut tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [G2ProjectiveStruct]>(&mut res) };
-            self.g2_result_buffer.read(tres).enq()?;
             let mut acc = <G as CurveAffine>::Projective::zero();
-            for i in 0..n { acc.add_assign(&res[i]); }
             return Ok((acc))
         }
         else {
