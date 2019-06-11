@@ -73,8 +73,8 @@ pub fn fft_kernel<F>() -> String where F: PrimeField {
 }
 
 pub fn multiexp_kernel<F>() -> String where F: PrimeField {
-    return String::from(format!("{}\n{}\n{}\n{}\n{}\n{}",
+    return String::from(format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
         DEFS_SRC,
         field::<F>("Fq"), ec("Fq", "G1"), multiexp("Fq","G1"),
-        field2("Fq2", "Fq"), ec("Fq2", "G2")));
+        field2("Fq2", "Fq"), ec("Fq2", "G2"), multiexp("Fq2","G2")));
 }
