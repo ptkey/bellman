@@ -3,7 +3,7 @@
 // Montgomery reduction parameters:
 // B = 2^32 (Because our digits are uint32)
 
-typedef struct { uint32 val[FIELD_LIMBS]; } FIELD;
+typedef struct { limb val[FIELD_LIMBS]; } FIELD;
 
 void print(FIELD v) {
   printf("%u %u %u %u %u %u %u %u %u %u %u %u\n",
@@ -33,7 +33,7 @@ bool FIELD_eq(FIELD a, FIELD b) {
 FIELD FIELD_add_(FIELD a, FIELD b) {
   uint32 carry = 0;
   for(int i = 0; i < FIELD_LIMBS; i++) {
-    uint32 old = a.val[i];
+    limb old = a.val[i];
     a.val[i] += b.val[i] + carry;
     carry = carry ? old >= a.val[i] : old > a.val[i];
   }
@@ -44,7 +44,7 @@ FIELD FIELD_add_(FIELD a, FIELD b) {
 FIELD FIELD_sub_(FIELD a, FIELD b) {
   uint32 borrow = 0;
   for(int i = 0; i < FIELD_LIMBS; i++) {
-    uint32 old = a.val[i];
+    limb old = a.val[i];
     a.val[i] -= b.val[i] + borrow;
     borrow = borrow ? old <= a.val[i] : old < a.val[i];
   }
@@ -64,26 +64,21 @@ FIELD FIELD_mul(FIELD a, FIELD b) {
   FIELD p = FIELD_P; // TODO: Find a solution for this
 
   // Long multiplication
-  uint32 res[FIELD_LIMBS * 2] = {0};
+  limb res[FIELD_LIMBS * 2] = {0};
   for(uint32 i = 0; i < FIELD_LIMBS; i++) {
-    uint32 carry = (0);
+    limb carry = 0;
     for(uint32 j = 0; j < FIELD_LIMBS; j++) {
-      uint64 product = (uint64)a.val[i] * b.val[j] + res[i + j] + carry;
-      res[i + j] = product & 0xffffffff;
-      carry = product >> 32;
+      res[i + j] = mac_with_carry(a.val[i], b.val[j], res[i + j], &carry);
     }
     res[i + FIELD_LIMBS] = carry;
   }
 
   // Montgomery reduction
   for(uint32 i = 0; i < FIELD_LIMBS; i++) {
-    uint64 u = ((uint64)FIELD_INV * (uint64)res[i]) & 0xffffffff;
-    uint32 carry = 0;
-    for(uint32 j = 0; j < FIELD_LIMBS; j++) {
-      uint64 product = u * p.val[j] + res[i + j] + carry;
-      res[i + j] = product & 0xffffffff;
-      carry = product >> 32;
-    }
+    limb u = FIELD_INV * res[i];
+    limb carry = 0;
+    for(uint32 j = 0; j < FIELD_LIMBS; j++)
+      res[i + j] = mac_with_carry(u, p.val[j], res[i + j], &carry);
     add_digit(res + i + FIELD_LIMBS, carry);
   }
 

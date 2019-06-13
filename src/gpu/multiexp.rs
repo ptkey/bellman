@@ -1,5 +1,6 @@
 use ocl::{ProQue, Buffer, MemFlags};
 use ocl::traits::OclPrm;
+use ocl::builders::ProgramBuilder;
 use paired::Engine;
 use std::cmp;
 use std::sync::Arc;
@@ -36,6 +37,10 @@ unsafe impl OclPrm for G2AffineStruct { }
 pub struct G2ProjectiveStruct { x: Fq2Struct, y: Fq2Struct, z: Fq2Struct }
 unsafe impl OclPrm for G2ProjectiveStruct { }
 
+#[derive(PartialEq, Debug, Clone, Copy, Default)]
+pub struct PTable { table: [G1ProjectiveStruct;7] }
+unsafe impl OclPrm for PTable { }
+
 pub struct MultiexpKernel<E> where E: Engine {
     proque: ProQue,
     g1_base_buffer: Buffer<G1AffineStruct>,
@@ -51,7 +56,9 @@ impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create(n: u32) -> GPUResult<MultiexpKernel<E>> {
         let src = sources::multiexp_kernel::<E::Fq>();
-        let pq = ProQue::builder().src(src).dims(n).build()?;
+        let mut bldr = ProgramBuilder::new();
+        bldr.src(src);
+        let pq = ProQue::builder().prog_bldr(bldr).dims(n).build()?;
         let g1basebuff = Buffer::<G1AffineStruct>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
@@ -70,6 +77,9 @@ impl<E> MultiexpKernel<E> where E: Engine {
         let dmbuff = Buffer::<Uchar>::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
+        let ptablebuff = Buffer::<PTable>::builder().queue(pq.queue().clone())
+            .flags(MemFlags::new().read_write()).len(n)
+            .build()?;
         Ok(MultiexpKernel {proque: pq,
             g1_base_buffer: g1basebuff, g1_result_buffer: g1resbuff,
             g2_base_buffer: g2basebuff, g2_result_buffer: g2resbuff,
@@ -84,6 +94,24 @@ impl<E> MultiexpKernel<E> where E: Engine {
             skip: usize)
             -> GPUResult<(<G as CurveAffine>::Projective)>
             where G: CurveAffine {
+
+
+        // Calculate P Lookup tabel for window size [3]
+        let mut _s = 0;
+        for (&base, dm) in bases.iter().zip(dm.iter()) {
+            let mut pvec: Vec<PTable> = Vec::new();
+            let mut tmp0 = base.into_projective();
+            if (*dm) {
+                for i in 0..7 {
+                  let mut acc = G::Projective::zero();
+                  let add = tmp0.add_assign_mixed(&acc);
+                  pvec[_s].table[i] = unsafe { std::mem::transmute::<&[E::G1Projective], &[G1ProjectiveStruct]>(add) };
+                }
+            }
+            _s += 1;
+        }
+
+        // TODO: write pvec to self.ptablebuff
 
         let sz = std::mem::size_of::<G>(); // Trick, used for dispatching between G1 and G2!
         let exps = unsafe { std::mem::transmute::<Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,Arc<Vec<<E::Fr as PrimeField>::Repr>>>(exps) }.to_vec();
@@ -102,6 +130,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
                 .arg(&self.dm_buffer)
+                .arg(&self.ptablebuff)
                 .arg(skip as u32)
                 .arg(texps.len() as u32)
                 .build()?;

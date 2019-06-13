@@ -1,9 +1,12 @@
+#pragma OPENCL EXTENSION cl_nv_compiler_options : enable
+
 typedef uint uint32;
 typedef ulong uint64;
+typedef uint64 limb;
 
 // Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
-void add_digit(uint32 *res, uint32 num) {
-  uint32 old = *res;
+void add_digit(limb *res, limb num) {
+  limb old = *res;
   *res += num;
   if(*res < old) {
     res++;
@@ -20,4 +23,13 @@ bool get_bit(ulong4 l, uint i) {
     return (l.s2 >> (i - 128)) & 1;
   else
     return (l.s3 >> (i - 192)) & 1;
+}
+
+limb mac_with_carry(limb a, limb b, limb c, limb *carry) {
+  limb lo = a * b;
+  limb hi = mul_hi(a, b);
+  hi += lo + c < lo; lo += c;
+  hi += lo + *carry < lo; lo += *carry;
+  *carry = hi;
+  return lo;
 }

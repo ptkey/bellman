@@ -4,7 +4,6 @@ typedef struct {
   FIELD x;
   FIELD y;
   bool inf;
-  uint _; // WARNING: Padding, so that size of struct gets 104 bytes.
 } POINT_affine;
 
 typedef struct {
@@ -28,6 +27,7 @@ POINT_projective POINT_double(POINT_projective inp) {
   FIELD f = FIELD_mul(e, e);
 
   inp.z = FIELD_mul(inp.y, inp.z); inp.z = FIELD_add(inp.z, inp.z); // Z3 = 2*Y1*Z1
+
   inp.x = FIELD_sub(FIELD_sub(f, d), d); // X3 = F-2*D
 
   // Y3 = E*(D-X3)-8*C
@@ -79,7 +79,6 @@ POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
 POINT_projective POINT_add(POINT_projective a, POINT_projective b) {
   if(FIELD_eq(a.z, FIELD_ZERO)) return b;
   if(FIELD_eq(b.z, FIELD_ZERO)) return a;
-
   FIELD z1z1 = FIELD_mul(a.z, a.z); // Z1Z1 = Z1^2
   FIELD z2z2 = FIELD_mul(b.z, b.z); // Z2Z2 = Z2^2
   FIELD u1 = FIELD_mul(a.x, z2z2); // U1 = X1*Z2Z2
