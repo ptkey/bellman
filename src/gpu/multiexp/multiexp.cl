@@ -3,7 +3,7 @@
 #define WINDOW_SIZE 3
 
 typedef struct {
-  POINT_projective table;
+  POINT_projective table[7];
 } PTABLE;
 
 
@@ -38,7 +38,8 @@ __kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
     uint skip,
     uint n) {
 
-  uint32 p_table[7] = {0, 1, 2, 3, 4, 5, 6, 7}; // a 2^window_size lookup table
+  // uint32 p_table[7] = {0, 1, 2, 3, 4, 5, 6, 7}; 
+  // a 2^window_size lookup table
 
   uint32 work = get_global_id(0);
   uint32 num_windows = get_global_size(0)/WINDOW_SIZE;
@@ -59,8 +60,9 @@ __kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
         2 * get_bit(exps[work], window_end - 1) +
         get_bit(exps[work], window_end - 2);
 
-      if(window_bits != 0)
-        res = POINT_add_mixed(res, ptable[window_bits]);
+      if(window_bits != 0) {
+        // res = POINT_add_mixed(res, ptable[window_bits]);
+      }
     }
   }
   results[work] = res;

@@ -49,7 +49,8 @@ pub struct MultiexpKernel<E> where E: Engine {
     g2_result_buffer: Buffer<G2ProjectiveStruct>,
     exp_buffer: Buffer<Ulong4>,
     dm_buffer: Buffer<Uchar>,
-    field_type: PhantomData<E>
+    field_type: PhantomData<E>,
+    p_table_buff: Buffer<PTable>
 }
 
 impl<E> MultiexpKernel<E> where E: Engine {
@@ -84,7 +85,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
             g1_base_buffer: g1basebuff, g1_result_buffer: g1resbuff,
             g2_base_buffer: g2basebuff, g2_result_buffer: g2resbuff,
             exp_buffer: expbuff, dm_buffer: dmbuff,
-            field_type: PhantomData})
+            field_type: PhantomData, p_table_buff: ptablebuff})
     }
 
     pub fn multiexp<G>(&mut self,
@@ -100,14 +101,21 @@ impl<E> MultiexpKernel<E> where E: Engine {
         let mut _s = 0;
         for (&base, dm) in bases.iter().zip(dm.iter()) {
             let mut pvec: Vec<PTable> = Vec::new();
-            let mut tmp0 = base.into_projective();
+            let mut tmp0 = base.clone();
+            let mut table_limb: Vec<<G as CurveAffine>::Projective> = Vec::new();
             if (*dm) {
-                for i in 0..7 {
+                for i in 0..8 {
                   let mut acc = G::Projective::zero();
-                  let add = tmp0.add_assign_mixed(&acc);
-                  pvec[_s].table[i] = unsafe { std::mem::transmute::<&[E::G1Projective], &[G1ProjectiveStruct]>(add) };
+                  for j in 0..i {
+                    acc.add_assign_mixed(&tmp0);
+                  }
+                  if (i!=0) {
+                    table_limb.push(acc);
+                  }
                 }
             }
+            // pvec[_s].table[i] = unsafe { std::mem::transmute::<G::Projective, G1ProjectiveStruct>(acc) };
+            // println!("l {:?}", table_limb.len());
             _s += 1;
         }
 
@@ -130,7 +138,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
                 .arg(&self.dm_buffer)
-                .arg(&self.ptablebuff)
+                .arg(&self.p_table_buff)
                 .arg(skip as u32)
                 .arg(texps.len() as u32)
                 .build()?;
