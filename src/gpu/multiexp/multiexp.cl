@@ -7,7 +7,7 @@ typedef struct {
 } PTABLE;
 
 
-__kernel void POINT_batched_multiexp(__global POINT_affine *bases,
+__kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
     __global POINT_projective *results,
     __global ulong4 *exps,
     __global bool *dm,
@@ -30,7 +30,7 @@ __kernel void POINT_batched_multiexp(__global POINT_affine *bases,
 }
 
 
-__kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
+__kernel void POINT_batched_multiexp(__global POINT_affine *bases,
     __global POINT_projective *results,
     __global ulong4 *exps,
     __global bool *dm,
@@ -61,7 +61,8 @@ __kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
         get_bit(exps[work], window_end - 2);
 
       if(window_bits != 0) {
-        // res = POINT_add_mixed(res, ptable[window_bits]);
+        res = POINT_add(res, ptable[work].table[window_bits]);
+        // res = POINT_double(ptable[work].table[window_bits]);
       }
     }
   }

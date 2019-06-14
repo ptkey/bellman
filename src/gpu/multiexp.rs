@@ -98,28 +98,30 @@ impl<E> MultiexpKernel<E> where E: Engine {
 
 
         // Calculate P Lookup tabel for window size [3]
-        let mut _s = 0;
+        let mut pvec: Vec<PTable> = Vec::new();
         for (&base, dm) in bases.iter().zip(dm.iter()) {
-            let mut pvec: Vec<PTable> = Vec::new();
             let mut tmp0 = base.clone();
-            let mut table_limb: Vec<<G as CurveAffine>::Projective> = Vec::new();
+            //let mut table_limb: Vec<<G as CurveAffine>::Projective> = Vec::new();
+            let mut t_limbs = [<G as CurveAffine>::Projective::zero(); 7];
+            let mut t_limbs2 = [G1ProjectiveStruct {x:FqStruct {vals: [0,0,0,0,0,0]}, y:FqStruct {vals: [0,0,0,0,0,0]}, z:FqStruct {vals: [0,0,0,0,0,0]} };7];
             if (*dm) {
-                for i in 0..8 {
-                  let mut acc = G::Projective::zero();
-                  for j in 0..i {
-                    acc.add_assign_mixed(&tmp0);
-                  }
-                  if (i!=0) {
-                    table_limb.push(acc);
-                  }
-                }
-            }
-            // pvec[_s].table[i] = unsafe { std::mem::transmute::<G::Projective, G1ProjectiveStruct>(acc) };
-            // println!("l {:?}", table_limb.len());
-            _s += 1;
-        }
+                  for i in 0..8 {
+                    let mut acc = G::Projective::zero();
+                    for j in 0..i {
+                        acc.add_assign_mixed(&tmp0);
+                    }
 
-        // TODO: write pvec to self.ptablebuff
+                    if (i!=0) {
+                        t_limbs[i-1] = acc;
+                        t_limbs2[i-1] = unsafe { *std::mem::transmute::<&G::Projective, &G1ProjectiveStruct>(&acc) };
+                    }
+                }
+                pvec.push(PTable {table: t_limbs2});
+            }
+        }
+        let vv = unsafe { std::mem::transmute::<&[PTable], &[PTable]>(&pvec) }; // hacky hack
+        // write pvec to self.ptablebuff
+        self.p_table_buff.write(vv).enq()?;
 
         let sz = std::mem::size_of::<G>(); // Trick, used for dispatching between G1 and G2!
         let exps = unsafe { std::mem::transmute::<Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,Arc<Vec<<E::Fr as PrimeField>::Repr>>>(exps) }.to_vec();
