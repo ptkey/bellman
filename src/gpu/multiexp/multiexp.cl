@@ -45,6 +45,7 @@ __kernel void POINT_lookup_multiexp(__global POINT_projective *results,
   uint32 num_windows = NUM_BITS/WINDOW_SIZE;
 
   // bases += skip;
+  ptable += skip;
   POINT_projective res = POINT_ZERO;
   if(dm[work]) {
     for(int i = 0; i < num_windows; ++i) {
@@ -53,7 +54,7 @@ __kernel void POINT_lookup_multiexp(__global POINT_projective *results,
         res = POINT_double(res);
       }
 
-      uint32 window_end = 254 - (WINDOW_SIZE * i);
+      uint32 window_end = 255 - (WINDOW_SIZE * i);
 
       uint32 window_bits = 
         4 * get_bit(exps[work], window_end) +
