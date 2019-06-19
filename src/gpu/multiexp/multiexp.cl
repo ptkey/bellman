@@ -61,6 +61,8 @@ __kernel void POINT_lookup_multiexp(__global POINT_projective *results,
         get_bit(exps[work], window_end - 2);
 
       if(window_bits != 0) {
+        // printf("%d", ptable[work].table[window_bits].inf);
+        // print(ptable[work].table[window_bits].x);
         res = POINT_add_mixed(res, ptable[work].table[window_bits]);
         // res = POINT_double(ptable[work].table[window_bits]);
       }

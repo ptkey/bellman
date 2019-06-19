@@ -110,11 +110,11 @@ impl<E> MultiexpKernel<E> where E: Engine {
                     for j in 0..i {
                         acc.add_assign_mixed(&tmp0);
                     }
-                    acc.into_affine();
+                    // acc.into_affine();
                     // let () = acc;
                     // println!("{:?}", acc.into_affine());
                     if (i!=0) {
-                        t_limbs[i-1] = unsafe { *std::mem::transmute::<&<G as paired::CurveAffine>::Projective, &G1AffineStruct>(&acc) };
+                        t_limbs[i-1] = unsafe { *std::mem::transmute::<&G, &G1AffineStruct>(&acc.into_affine()) };
                     }
                 }
                 pvec.push(PTable {table: t_limbs});
