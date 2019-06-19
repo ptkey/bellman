@@ -1,9 +1,10 @@
 /* Batched multiexp */
 
 #define WINDOW_SIZE 3
+#define NUM_BITS 255
 
 typedef struct {
-  POINT_projective table[7];
+  POINT_affine table[7];
 } PTABLE;
 
 
@@ -30,8 +31,7 @@ __kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
 }
 
 
-__kernel void POINT_batched_multiexp(__global POINT_affine *bases,
-    __global POINT_projective *results,
+__kernel void POINT_lookup_multiexp(__global POINT_projective *results,
     __global ulong4 *exps,
     __global bool *dm,
     __global PTABLE *ptable,
@@ -42,9 +42,9 @@ __kernel void POINT_batched_multiexp(__global POINT_affine *bases,
   // a 2^window_size lookup table
 
   uint32 work = get_global_id(0);
-  uint32 num_windows = get_global_size(0)/WINDOW_SIZE;
+  uint32 num_windows = NUM_BITS/WINDOW_SIZE;
 
-  bases += skip;
+  // bases += skip;
   POINT_projective res = POINT_ZERO;
   if(dm[work]) {
     for(int i = 0; i < num_windows; ++i) {
@@ -61,11 +61,10 @@ __kernel void POINT_batched_multiexp(__global POINT_affine *bases,
         get_bit(exps[work], window_end - 2);
 
       if(window_bits != 0) {
-        res = POINT_add(res, ptable[work].table[window_bits]);
+        res = POINT_add_mixed(res, ptable[work].table[window_bits]);
         // res = POINT_double(ptable[work].table[window_bits]);
       }
     }
   }
   results[work] = res;
 }
-

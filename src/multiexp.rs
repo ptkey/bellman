@@ -284,7 +284,7 @@ where
         }
 
         let (bss, skip) = bases.clone().get();
-        let result = k.multiexp(bss.clone(), exponents.clone(), dm, skip);
+        let result = k.multiexp_lookup(bss.clone(), exponents.clone(), dm, skip);
         if result.is_ok() { gpu_result = result.unwrap(); }
     }
     let gpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
