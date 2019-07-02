@@ -77,3 +77,39 @@ __kernel void POINT_lookup_multiexp(__global POINT_projective *bases,
   }
   results[work] = res;
 }
+
+__kernel void POINT_lookup_local_multiexp(__global POINT_projective *bases,
+    __global POINT_projective *results,
+    __global ulong4 *exps,
+    __global bool *dm,
+    uint skip,
+    uint n) {
+
+  uint32 work = get_global_id(0);
+  uint32 works = get_global_size(0);
+
+  uint len = (uint)ceil(n / (float)works);
+  uint32 nstart = len * work;
+  uint32 nend = min(nstart + len, n);
+
+  for(uint i = nstart; i < nend; i++)
+    for(uint j = 1; j < TABLE_SIZE; j++)
+      bases[i + j * n] = POINT_add(bases[i + (j - 1) * n], bases[i]);
+
+  bases += skip;
+  POINT_projective p = POINT_ZERO;
+  for(uint i = 0; i < 256 / WINDOW_SIZE; i++) {
+    for(uint j = 0; j < WINDOW_SIZE; j++)
+      p = POINT_double(p);
+    for(uint j = nstart; j < nend; j++) {
+      if(dm[j]) {
+        ulong ind = shr(&exps[j], WINDOW_SIZE);
+        if(ind)
+          p = POINT_add(p, bases[j + (ind - 1) * n]);
+      }
+    }
+  }
+  results[work] = p;
+
+}
+
