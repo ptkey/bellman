@@ -61,8 +61,6 @@ uint64 lo(uint64 x) {
 
 // Modular multiplication
 FIELD FIELD_mul(FIELD a, FIELD b) {
-  FIELD p = FIELD_P; // TODO: Find a solution for this
-
   // Long multiplication
   limb res[FIELD_LIMBS * 2] = {0};
   for(uint32 i = 0; i < FIELD_LIMBS; i++) {
@@ -78,7 +76,7 @@ FIELD FIELD_mul(FIELD a, FIELD b) {
     limb u = FIELD_INV * res[i];
     limb carry = 0;
     for(uint32 j = 0; j < FIELD_LIMBS; j++)
-      res[i + j] = mac_with_carry(u, p.val[j], res[i + j], &carry);
+      res[i + j] = mac_with_carry(u, FIELD_P.val[j], res[i + j], &carry);
     add_digit(res + i + FIELD_LIMBS, carry);
   }
 
@@ -86,23 +84,21 @@ FIELD FIELD_mul(FIELD a, FIELD b) {
   FIELD result;
   for(int i = 0; i < FIELD_LIMBS; i++) result.val[i] = res[i+FIELD_LIMBS];
 
-  if(FIELD_gte(result, p))
-    result = FIELD_sub_(result, p);
+  if(FIELD_gte(result, FIELD_P))
+    result = FIELD_sub_(result, FIELD_P);
 
   return result;
 }
 
 // Modular negation
 FIELD FIELD_neg(FIELD a) {
-  FIELD p = FIELD_P; // TODO: Find a solution for this
-  return FIELD_sub_(p, a);
+  return FIELD_sub_(FIELD_P, a);
 }
 
 // Modular subtraction
 FIELD FIELD_sub(FIELD a, FIELD b) {
-  FIELD p = FIELD_P; // TODO: Find a solution for this
   FIELD res = FIELD_sub_(a, b);
-  if(!FIELD_gte(a, b)) res = FIELD_add_(res, p);
+  if(!FIELD_gte(a, b)) res = FIELD_add_(res, FIELD_P);
   return res;
 }
 

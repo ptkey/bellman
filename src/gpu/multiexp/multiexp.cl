@@ -1,6 +1,7 @@
 /* Batched multiexp */
 
-#define WINDOW_SIZE 3
+#define WINDOW_SIZE 4
+#define TABLE_SIZE ((1 << WINDOW_SIZE) - 1)
 #define NUM_BITS 255
 
 typedef struct {
@@ -8,7 +9,7 @@ typedef struct {
 } PTABLE;
 
 
-__kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
+__kernel void POINT_batched_multiexp(__global POINT_affine *bases,
     __global POINT_projective *results,
     __global ulong4 *exps,
     __global bool *dm,
@@ -16,7 +17,17 @@ __kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
     uint n) {
 
   uint32 work = get_global_id(0);
-  uint32 num_windows = get_global_size(0)/WINDOW_SIZE;
+  __local POINT_affine base; 
+  base = bases[work];
+  __local ulong4 exp; 
+  exp = exps[work];
+
+  if(work == 420) {
+    print(base.x);
+    // printf("%u", exps[work]);
+    printf("------");
+    print(bases[work].x);
+  }
 
   bases += skip;
   POINT_projective p = POINT_ZERO;
@@ -31,10 +42,10 @@ __kernel void POINT_batched_multiexp2(__global POINT_affine *bases,
 }
 
 
-__kernel void POINT_lookup_multiexp(__global POINT_projective *results,
+__kernel void POINT_lookup_multiexp(__global POINT_projective *bases,
+    __global POINT_projective *results,
     __global ulong4 *exps,
     __global bool *dm,
-    __global PTABLE *ptable,
     uint skip,
     uint n) {
 
@@ -42,31 +53,26 @@ __kernel void POINT_lookup_multiexp(__global POINT_projective *results,
   // a 2^window_size lookup table
 
   uint32 work = get_global_id(0);
-  uint32 num_windows = NUM_BITS/WINDOW_SIZE;
+  // uint32 num_windows = NUM_BITS/WINDOW_SIZE;
 
-  // bases += skip;
-  ptable += skip;
+  bases += skip;
+  // ptable += skip;
+
+  for(uint j = 1; j < TABLE_SIZE; j++) {
+    bases[work + j * n] = POINT_add(bases[work + (j - 1) * n], bases[work]);
+  }
+
   POINT_projective res = POINT_ZERO;
-  if(dm[work]) {
-    for(int i = 0; i < num_windows; ++i) {
 
-      for(int j = 0; j < WINDOW_SIZE; ++j) {
-        res = POINT_double(res);
-      }
+  for(uint i = 0; i < 256 / WINDOW_SIZE; i++) {
+    for(int j = 0; j < WINDOW_SIZE; j++) {
+      res = POINT_double(res);
+    }
 
-      uint32 window_end = 255 - (WINDOW_SIZE * i);
-
-      uint32 window_bits = 
-        4 * get_bit(exps[work], window_end) +
-        2 * get_bit(exps[work], window_end - 1) +
-        get_bit(exps[work], window_end - 2);
-
-      if(window_bits != 0) {
-        // printf("%d", ptable[work].table[window_bits].inf);
-        // print(ptable[work].table[window_bits].x);
-        res = POINT_add_mixed(res, ptable[work].table[window_bits]);
-        // res = POINT_double(ptable[work].table[window_bits]);
-      }
+    if(dm[work]) {
+      ulong ind = shr(&exps[work], WINDOW_SIZE);
+      if(ind)
+        res = POINT_add(res, bases[work + (ind - 1) * n]);      
     }
   }
   results[work] = res;
