@@ -148,11 +148,11 @@ impl<E> MultiexpKernel<E> where E: Engine {
             self.g1_base_buffer.write(tbases).enq()?;
             self.exp_buffer.write(texps).enq()?;
             self.dm_buffer.write(tdm).enq()?;
-            let kernel = self.proque.kernel_builder("G1_lookup_local_multiexp")
+            let kernel = self.proque.kernel_builder("G1_lookup_multiexp")
             // let kernel = self.proque.kernel_builder("G1_batched_multiexp")
-                //.global_work_size([n])
-                .global_work_size([NUM_WORKS])
-                .local_work_size([128])
+                .global_work_size([n])
+                //.global_work_size([NUM_WORKS])
+                //.local_work_size([128])
                 .arg(&self.g1_base_buffer)
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)

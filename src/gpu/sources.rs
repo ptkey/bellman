@@ -9,15 +9,15 @@ static FIELD2_SRC : &str = include_str!("multiexp/field2.cl");
 static EC_SRC : &str = include_str!("multiexp/ec.cl");
 static MULTIEXP_SRC : &str = include_str!("multiexp/multiexp.cl");
 
-fn limbs_of<T>(value: &T) -> &[u64] {
+fn limbs_of<T>(value: &T) -> &[u32] {
     unsafe {
-        std::slice::from_raw_parts(value as *const T as *const u64, std::mem::size_of::<T>() / 8)
+        std::slice::from_raw_parts(value as *const T as *const u32, std::mem::size_of::<T>() / 4)
     }
 }
 
-fn calc_inv(a: u64) -> u64 {
-    let mut inv = 1u64;
-    for _ in 0..63 {
+fn calc_inv(a: u32) -> u32 {
+    let mut inv = 1u32;
+    for _ in 0..31 {
         inv = inv.wrapping_mul(inv);
         inv = inv.wrapping_mul(a);
     }
@@ -32,7 +32,7 @@ fn params<F>(name: &str) -> String where F: PrimeField {
     let limbs_def = format!("#define {}_LIMBS {}", name, limbs);
     let p_def = format!("#define {}_P (({}){{ {{ {} }} }})", name, name, join(p, ", "));
     let one_def = format!("#define {}_ONE (({}){{ {{ {} }} }})", name, name, join(one, ", "));
-    let zero_def = format!("#define {}_ZERO (({}){{ {{ {} }} }})", name, name, join(vec![0u64; limbs], ", "));
+    let zero_def = format!("#define {}_ZERO (({}){{ {{ {} }} }})", name, name, join(vec![0u32; limbs], ", "));
     let inv_def = format!("#define {}_INV {}", name, inv);
     return format!("{}\n{}\n{}\n{}\n{}", limbs_def, one_def, p_def, zero_def, inv_def);
 }

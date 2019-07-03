@@ -12,7 +12,7 @@ void print(FIELD v) {
 
 // Greater than or equal
 bool FIELD_gte(FIELD a, FIELD b) {
-  for(int i = FIELD_LIMBS - 1; i >= 0; i--){
+  for(char i = FIELD_LIMBS - 1; i >= 0; i--){
     if(a.val[i] > b.val[i])
       return true;
     if(a.val[i] < b.val[i])
@@ -23,7 +23,7 @@ bool FIELD_gte(FIELD a, FIELD b) {
 
 // Equals
 bool FIELD_eq(FIELD a, FIELD b) {
-  for(int i = 0; i < FIELD_LIMBS; i++)
+  for(uchar i = 0; i < FIELD_LIMBS; i++)
     if(a.val[i] != b.val[i])
       return false;
   return true;
@@ -31,11 +31,11 @@ bool FIELD_eq(FIELD a, FIELD b) {
 
 // Normal addition
 FIELD FIELD_add_(FIELD a, FIELD b) {
-  uint32 carry = 0;
-  for(int i = 0; i < FIELD_LIMBS; i++) {
+  bool borrow = 0;
+  for(uchar i = 0; i < FIELD_LIMBS; i++) {
     limb old = a.val[i];
-    a.val[i] += b.val[i] + carry;
-    carry = carry ? old >= a.val[i] : old > a.val[i];
+    a.val[i] -= b.val[i] + borrow;
+    borrow = borrow ? old <= a.val[i] : old < a.val[i];
   }
   return a;
 }
@@ -61,28 +61,34 @@ uint64 lo(uint64 x) {
 
 // Modular multiplication
 FIELD FIELD_mul(FIELD a, FIELD b) {
+  FIELD p = FIELD_P; // TODO: Find a solution for this
   // Long multiplication
   limb res[FIELD_LIMBS * 2] = {0};
-  for(uint32 i = 0; i < FIELD_LIMBS; i++) {
+  for(uchar i = 0; i < FIELD_LIMBS; i++) {
     limb carry = 0;
-    for(uint32 j = 0; j < FIELD_LIMBS; j++) {
-      res[i + j] = mac_with_carry(a.val[i], b.val[j], res[i + j], &carry);
+    for(uchar j = 0; j < FIELD_LIMBS; j++) {
+      limb2 product = (limb2)a.val[i] * b.val[j] + res[i + j] + carry;
+      res[i + j] = product & LIMB_MAX;
+      carry = product >> LIMB_BITS;
     }
     res[i + FIELD_LIMBS] = carry;
   }
 
   // Montgomery reduction
-  for(uint32 i = 0; i < FIELD_LIMBS; i++) {
+  for(uchar i = 0; i < FIELD_LIMBS; i++) {
     limb u = FIELD_INV * res[i];
     limb carry = 0;
-    for(uint32 j = 0; j < FIELD_LIMBS; j++)
-      res[i + j] = mac_with_carry(u, FIELD_P.val[j], res[i + j], &carry);
+    for(uchar j = 0; j < FIELD_LIMBS; j++) {
+      limb2 product = (limb2)u * p.val[j] + res[i + j] + carry;
+      res[i + j] = product & LIMB_MAX;
+      carry = product >> LIMB_BITS;
+    }
     add_digit(res + i + FIELD_LIMBS, carry);
   }
 
   // Divide by R
   FIELD result;
-  for(int i = 0; i < FIELD_LIMBS; i++) result.val[i] = res[i+FIELD_LIMBS];
+  for(uchar i = 0; i < FIELD_LIMBS; i++) result.val[i] = res[i+FIELD_LIMBS];
 
   if(FIELD_gte(result, FIELD_P))
     result = FIELD_sub_(result, FIELD_P);

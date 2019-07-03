@@ -2,7 +2,10 @@
 
 typedef uint uint32;
 typedef ulong uint64;
-typedef uint64 limb;
+typedef uint32 limb;
+typedef uint64 limb2;
+#define LIMB_BITS (32)
+#define LIMB_MAX (0xffffffff)
 
 // Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
 void add_digit(limb *res, limb num) {
