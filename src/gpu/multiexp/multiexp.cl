@@ -49,14 +49,9 @@ __kernel void POINT_lookup_multiexp(__global POINT_projective *bases,
     uint skip,
     uint n) {
 
-  // uint32 p_table[7] = {0, 1, 2, 3, 4, 5, 6, 7}; 
-  // a 2^window_size lookup table
-
   uint32 work = get_global_id(0);
-  // uint32 num_windows = NUM_BITS/WINDOW_SIZE;
 
   bases += skip;
-  // ptable += skip;
 
   for(uint j = 1; j < TABLE_SIZE; j++) {
     bases[work + j * n] = POINT_add(bases[work + (j - 1) * n], bases[work]);
@@ -71,8 +66,9 @@ __kernel void POINT_lookup_multiexp(__global POINT_projective *bases,
 
     if(dm[work]) {
       ulong ind = shr(&exps[work], WINDOW_SIZE);
+      // uint ind = get_bits(exps[work], i*WINDOW_SIZE, WINDOW_SIZE);
       if(ind)
-        res = POINT_add(res, bases[work + (ind - 1) * n]);      
+        res = POINT_add(res, bases[work + (ind - 1) * n]);  
     }
   }
   results[work] = res;

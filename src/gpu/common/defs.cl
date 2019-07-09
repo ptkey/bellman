@@ -1,11 +1,6 @@
-#pragma OPENCL EXTENSION cl_nv_compiler_options : enable
-
 typedef uint uint32;
 typedef ulong uint64;
-typedef uint32 limb;
-typedef uint64 limb2;
-#define LIMB_BITS (32)
-#define LIMB_MAX (0xffffffff)
+typedef uint64 limb;
 
 // Adds `num` to `i`th digit of `res` and propagates carry in case of overflow
 void add_digit(limb *res, limb num) {
@@ -28,6 +23,15 @@ bool get_bit(ulong4 l, uint i) {
   else
     res = (l.s3 >> (i - 192));
   return res & 1;
+}
+
+uint get_bits(ulong4 l, uint skip, uint window) {
+  uint ret = 0;
+  for(uint i = 0; i < window; i++) {
+    ret <<= 1;
+    ret |= get_bit(l, skip + i);
+  }
+  return ret;
 }
 
 ulong shr(__global ulong4 *l, uint i) {
