@@ -167,6 +167,8 @@ impl<E> MultiexpKernel<E> where E: Engine {
             -> GPUResult<(<G as CurveAffine>::Projective)>
             where G: CurveAffine {
 
+        use std::time::Instant;
+
         let num_devices = self.0.len();
 
         // Bases are skipped by `self.1` elements, when converted from (Arc<Vec<G>>, usize) to Source
@@ -182,8 +184,11 @@ impl<E> MultiexpKernel<E> where E: Engine {
         let cpu_n = ((n as f64) / ((num_devices as f64) * SPEEDUP + 1.0f64)).ceil() as usize;
         let n = n - cpu_n;
 
+        let now = Instant::now();
         let (cpu_bases, bases) = bases.split_at(cpu_n);
         let (cpu_exps, exps) = exps.split_at(cpu_n);
+        println!("Chunking: took {}ms.", now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64);
+        println!("CPU: {} GPUs: {}", cpu_bases.len(), bases.len());
 
         let chunk_size = ((n as f64) / (num_devices as f64)).ceil() as usize;
 
@@ -192,16 +197,22 @@ impl<E> MultiexpKernel<E> where E: Engine {
             if chunk_size > 0 {
                 for ((bases, exps), kern) in bases.chunks(chunk_size).zip(exps.chunks(chunk_size)).zip(self.0.iter_mut()) {
                     threads.push(s.spawn(move |s| {
+                        let now = Instant::now();
                         let mut acc = <G as CurveAffine>::Projective::zero();
                         for (bases, exps) in bases.chunks(CHUNK_SIZE).zip(exps.chunks(CHUNK_SIZE)) {
                             let result = kern.multiexp(bases, exps, bases.len()).unwrap();
                             acc.add_assign(&result);
                         }
+                        println!("Single GPU Multiexp: took {}ms.", now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64);
                         acc
                     }));
                 }
             }
+
+            let now = Instant::now();
             let mut acc = cpu_multiexp(pool, (Arc::new(cpu_bases.to_vec()), 0), FullDensity, Arc::new(cpu_exps.to_vec()), &mut None).wait().unwrap();
+            println!("CPU Multiexp: took {}ms.", now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64);
+
             for t in threads {
                 let result = t.join().unwrap();
                 acc.add_assign(&result);
