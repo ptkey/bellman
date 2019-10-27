@@ -40,10 +40,7 @@ pub struct SingleMultiexpKernel<E> where E: Engine {
 
 impl<E> SingleMultiexpKernel<E> where E: Engine {
 
-    pub fn create(d: Device, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
-        let src = sources::multiexp_kernel::<E>();
-        let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
-
+    pub fn create(pq: ProQue, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
         let g1basebuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
         let g1buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
         let g1resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
@@ -140,12 +137,10 @@ pub struct MultiexpKernel<E>(Vec<SingleMultiexpKernel<E>>) where E: Engine;
 impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create() -> GPUResult<MultiexpKernel<E>> {
-        let devices = &utils::GPU_NVIDIA_DEVICES;
-        if devices.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let mut kernels = Vec::new();
-        for dev in devices.iter().map(|device| { SingleMultiexpKernel::<E>::create(*device, CHUNK_SIZE as u32) }) {
-            kernels.push(dev?);
-        }
+        if utils::BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        let kernels : Vec<_> = utils::BLS12_KERNELS.iter().map(|pq| {
+            SingleMultiexpKernel::<E>::create(pq.clone(), CHUNK_SIZE as u32)
+        }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
             info!("Multiexp: Device {}: {}", i, k.proque.device().name()?);

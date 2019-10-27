@@ -1,6 +1,7 @@
-use ocl::{Device, Platform};
+use ocl::{Device, Platform, ProQue};
 use std::panic;
 use super::error::{GPUResult, GPUError};
+use super::sources;
 
 pub const GPU_NVIDIA_PLATFORM_NAME : &str = "NVIDIA CUDA";
 pub const CPU_INTEL_PLATFORM_NAME : &str = "Intel(R) CPU Runtime for OpenCL(TM) Applications";
@@ -20,7 +21,21 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
 }
 
 lazy_static! {
-    pub static ref GPU_NVIDIA_DEVICES: Vec<Device> = {
-        get_devices(GPU_NVIDIA_PLATFORM_NAME).unwrap_or(Vec::new())
+    pub static ref DEVICES: Vec<Device> = {
+        get_devices(CPU_INTEL_PLATFORM_NAME).unwrap_or(Vec::new())
+    };
+}
+
+use paired::bls12_381::Bls12;
+lazy_static! {
+    pub static ref BLS12_KERNELS: Vec<ProQue> = {
+        DEVICES
+            .iter()
+            .map(|d| {
+                let src = sources::kernel::<Bls12>();
+                ProQue::builder().device(d).src(src).build()
+            })
+            .filter(|res| res.is_ok()).map(|res| res.unwrap())
+            .collect()
     };
 }

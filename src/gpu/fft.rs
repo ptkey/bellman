@@ -24,11 +24,8 @@ pub struct FFTKernel<F> where F: PrimeField {
 impl<F> FFTKernel<F> where F: PrimeField {
 
     pub fn create(n: u32) -> GPUResult<FFTKernel::<F>> {
-        let src = sources::fft_kernel::<F>();
-        let devices = &utils::GPU_NVIDIA_DEVICES;
-        if devices.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let device = devices[0]; // Select the first device for FFT
-        let pq = ProQue::builder().device(device).src(src).dims(n).build()?;
+        if utils::BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        let pq = utils::BLS12_KERNELS[0].clone();
         let srcbuff = Buffer::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
