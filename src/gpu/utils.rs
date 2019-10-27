@@ -20,16 +20,11 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
     }
 }
 
-lazy_static! {
-    pub static ref DEVICES: Vec<Device> = {
-        get_devices(GPU_NVIDIA_PLATFORM_NAME).unwrap_or(Vec::new())
-    };
-}
-
 use paired::bls12_381::Bls12;
 lazy_static! {
     pub static ref BLS12_KERNELS: Vec<ProQue> = {
-        DEVICES
+        get_devices(GPU_NVIDIA_PLATFORM_NAME)
+            .unwrap_or(Vec::new())
             .iter()
             .map(|d| {
                 let src = sources::kernel::<Bls12>();
