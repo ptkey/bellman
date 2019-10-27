@@ -22,7 +22,7 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
 
 lazy_static! {
     pub static ref DEVICES: Vec<Device> = {
-        get_devices(CPU_INTEL_PLATFORM_NAME).unwrap_or(Vec::new())
+        get_devices(GPU_NVIDIA_PLATFORM_NAME).unwrap_or(Vec::new())
     };
 }
 
