@@ -95,3 +95,12 @@ pub fn multiexp_kernel<E>() -> String where E: Engine {
         field::<E::Fq>("Fq"), ec("Fq", "G1"), multiexp("G1", "Exp"),
         field2("Fq2", "Fq"), ec("Fq2", "G2"), multiexp("G2", "Exp")));
 }
+
+pub fn kernel<E>() -> String where E: Engine {
+    return String::from(format!("{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        DEFS_SRC,
+        field::<E::Fr>("Fr"), fft("Fr"),
+        exponent::<E::Fr>("Exp"),
+        field::<E::Fq>("Fq"), ec("Fq", "G1"), multiexp("G1", "Exp"),
+        field2("Fq2", "Fq"), ec("Fq2", "G2"), multiexp("G2", "Exp")));
+}
