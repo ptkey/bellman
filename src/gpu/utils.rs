@@ -1,3 +1,4 @@
+use log::info;
 use ocl::{Device, Platform, ProQue};
 use std::panic;
 use super::error::{GPUResult, GPUError};
@@ -30,7 +31,12 @@ lazy_static! {
                 let src = sources::kernel::<Bls12>();
                 ProQue::builder().device(d).src(src).build()
             })
-            .filter(|res| res.is_ok()).map(|res| res.unwrap())
+            .filter(|res| res.is_ok())
+            .map(|res| {
+                let pq = res.unwrap();
+                info!("Kernel initialized for device: {}", pq.device().name().unwrap_or("Unknown".to_string()));
+                pq
+            })
             .collect()
     };
 }
