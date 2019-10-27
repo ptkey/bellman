@@ -3,7 +3,6 @@ use ocl::{ProQue, Buffer, MemFlags};
 use std::cmp;
 use ff::PrimeField;
 use super::error::{GPUResult, GPUError};
-use super::sources;
 use super::structs;
 use super::utils;
 

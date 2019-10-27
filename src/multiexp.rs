@@ -346,7 +346,7 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-pub fn gpu_multiexp_supported<E>(log_d: u32) -> gpu::GPUResult<gpu::MultiexpKernel<E>> where E: Engine {
+pub fn gpu_multiexp_supported<E>() -> gpu::GPUResult<gpu::MultiexpKernel<E>> where E: Engine {
     const TEST_SIZE : u32 = 1024;
     use rand::Rand;
     let pool = Worker::new();

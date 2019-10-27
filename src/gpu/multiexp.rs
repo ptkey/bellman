@@ -1,11 +1,10 @@
 use log::info;
-use ocl::{ProQue, Buffer, MemFlags, Device};
+use ocl::{ProQue, Buffer, MemFlags};
 use paired::Engine;
 use std::sync::Arc;
 use ff::{PrimeField, ScalarEngine};
 use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
-use super::sources;
 use super::structs;
 use super::utils;
 use crossbeam::thread;
