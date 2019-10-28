@@ -278,7 +278,6 @@ where
     let powers_of_tau = powers_of_tau.into_coeffs();
 
     let mut a = vec![E::G1::zero(); assembly.num_inputs + assembly.num_aux];
-    let mut b_g1 = vec![E::G1::zero(); assembly.num_inputs + assembly.num_aux];
     let mut b_g2 = vec![E::G2::zero(); assembly.num_inputs + assembly.num_aux];
     let mut ic = vec![E::G1::zero(); assembly.num_inputs];
     let mut l = vec![E::G1::zero(); assembly.num_aux];
@@ -298,7 +297,6 @@ where
 
         // Resulting evaluated QAP polynomials
         a: &mut [E::G1],
-        b_g1: &mut [E::G1],
         b_g2: &mut [E::G2],
         ext: &mut [E::G1],
 
@@ -316,16 +314,14 @@ where
         assert_eq!(a.len(), at.len());
         assert_eq!(a.len(), bt.len());
         assert_eq!(a.len(), ct.len());
-        assert_eq!(a.len(), b_g1.len());
         assert_eq!(a.len(), b_g2.len());
         assert_eq!(a.len(), ext.len());
 
         // Evaluate polynomials in multiple threads
         worker
             .scope(a.len(), |scope, chunk| {
-                for ((((((a, b_g1), b_g2), ext), at), bt), ct) in a
+                for (((((a, b_g2), ext), at), bt), ct) in a
                     .chunks_mut(chunk)
-                    .zip(b_g1.chunks_mut(chunk))
                     .zip(b_g2.chunks_mut(chunk))
                     .zip(ext.chunks_mut(chunk))
                     .zip(at.chunks(chunk))
@@ -336,9 +332,8 @@ where
                     let mut g2_wnaf = g2_wnaf.shared();
 
                     scope.spawn(move |_| {
-                        for ((((((a, b_g1), b_g2), ext), at), bt), ct) in a
+                        for (((((a, b_g2), ext), at), bt), ct) in a
                             .iter_mut()
-                            .zip(b_g1.iter_mut())
                             .zip(b_g2.iter_mut())
                             .zip(ext.iter_mut())
                             .zip(at.iter())
@@ -373,7 +368,6 @@ where
                             // Compute B query (in G1/G2)
                             if !bt.is_zero() {
                                 let bt_repr = bt.into_repr();
-                                *b_g1 = g1_wnaf.scalar(bt_repr);
                                 *b_g2 = g2_wnaf.scalar(bt_repr);
                             }
 
@@ -390,7 +384,6 @@ where
 
                         // Batch normalize
                         E::G1::batch_normalization(a);
-                        E::G1::batch_normalization(b_g1);
                         E::G2::batch_normalization(b_g2);
                         E::G1::batch_normalization(ext);
                     });
@@ -408,7 +401,6 @@ where
         &assembly.bt_inputs,
         &assembly.ct_inputs,
         &mut a[0..assembly.num_inputs],
-        &mut b_g1[0..assembly.num_inputs],
         &mut b_g2[0..assembly.num_inputs],
         &mut ic,
         &gamma_inverse,
@@ -426,7 +418,6 @@ where
         &assembly.bt_aux,
         &assembly.ct_aux,
         &mut a[assembly.num_inputs..],
-        &mut b_g1[assembly.num_inputs..],
         &mut b_g2[assembly.num_inputs..],
         &mut l,
         &delta_inverse,
@@ -464,12 +455,6 @@ where
         // Filter points at infinity away from A/B queries
         a: Arc::new(
             a.into_iter()
-                .filter(|e| !e.is_zero())
-                .map(|e| e.into_affine())
-                .collect(),
-        ),
-        b_g1: Arc::new(
-            b_g1.into_iter()
                 .filter(|e| !e.is_zero())
                 .map(|e| e.into_affine())
                 .collect(),
