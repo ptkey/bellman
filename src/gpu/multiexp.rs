@@ -166,32 +166,27 @@ impl<E> MultiexpKernel<E> where E: Engine {
 
         let exps = &exps[..n];
 
-        match thread::scope(|s| {
+        match thread::scope(|s| -> Result<<G as CurveAffine>::Projective, GPUError> {
             let mut acc = <G as CurveAffine>::Projective::zero();
             let mut threads = Vec::new();
             for ((bases, exps), kern) in bases.chunks(chunk_size).zip(exps.chunks(chunk_size)).zip(self.0.iter_mut()) {
-                threads.push(s.spawn(move |s| {
+                threads.push(s.spawn(move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
                     let mut acc = <G as CurveAffine>::Projective::zero();
                     for (bases, exps) in bases.chunks(chunk_size).zip(exps.chunks(chunk_size)) {
                         let result = kern.multiexp(bases, exps, bases.len()).unwrap();
                         acc.add_assign(&result);
                     }
-                    acc
+                    Ok(acc)
                 }));
             }
             for t in threads {
-                let result = t.join().unwrap();
-                acc.add_assign(&result);
+                let result = t.join()?;
+                acc.add_assign(&result?);
             }
-            acc
+            Ok(acc)
         }) {
-            Ok(acc) => { Ok(acc) },
-            Err(e) => {
-                match &e.downcast_ref::<GPUError>() {
-                    &Some(err) => Err(err.clone()),
-                    &None => Err(GPUError {msg: "Multigpu Multiexp failed!".to_string()})
-                }
-            }
+            Ok(res) => { res },
+            Err(e) => { Err(GPUError::from(e)) }
         }
     }
 }
