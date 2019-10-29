@@ -28,17 +28,17 @@ fn main(){
 
     let rng = &mut thread_rng();
 
-    println!("Creating parameters...");
-
     let load_parameters = true;
     let parameters_path = "parameters.dat";
 
     // Create parameters for our circuit
     let params = if load_parameters {
+        println!("Loading parameters...");
         let param_file = File::open(parameters_path).expect("Unable to open parameters file!");
         Parameters::<Bls12>::read(param_file, false /* false for better performance*/)
             .expect("Unable to read parameters file!")
     } else {
+        println!("Creating parameters...");  
         let c = dummy::DummyDemo::<Bls12> {
             xx: None
         };
