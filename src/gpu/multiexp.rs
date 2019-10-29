@@ -192,7 +192,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
             }
             Ok(acc)
         }) {
-            Ok(res) => { Ok(res.unwrap()) },
+            Ok(res) => { res },
             Err(e) => { Err(GPUError::from(e)) }
         }
     }
