@@ -15,7 +15,6 @@ use crossbeam::thread;
 const NUM_GROUPS : usize = 334; // Partition the bases into `NUM_GROUPS` groups
 const WINDOW_SIZE : usize = 10; // Exponents are 255bit long, divide exponents into `WINDOW_SIZE` bit windows
 const NUM_WINDOWS : usize = 26; // Then we will have Ceil(256/`WINDOW_SIZE`) windows per exponent
-const CHUNK_SIZE : usize = 15_000_000; // Maximum number of base elements we can pass to a GPU
 // So each group will have `NUM_WINDOWS` threads and as there are `NUM_GROUPS` groups, there will
 // be `NUM_GROUPS` * `NUM_WINDOWS` threads in total.
 
@@ -135,10 +134,10 @@ pub struct MultiexpKernel<E>(Vec<SingleMultiexpKernel<E>>) where E: Engine;
 
 impl<E> MultiexpKernel<E> where E: Engine {
 
-    pub fn create() -> GPUResult<MultiexpKernel<E>> {
+    pub fn create(chunk_size: u32) -> GPUResult<MultiexpKernel<E>> {
         if utils::BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
         let kernels : Vec<_> = utils::BLS12_KERNELS.iter().map(|pq| {
-            SingleMultiexpKernel::<E>::create(pq.clone(), CHUNK_SIZE as u32)
+            SingleMultiexpKernel::<E>::create(pq.clone(), chunk_size)
         }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
@@ -173,7 +172,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
             for ((bases, exps), kern) in bases.chunks(chunk_size).zip(exps.chunks(chunk_size)).zip(self.0.iter_mut()) {
                 threads.push(s.spawn(move |s| {
                     let mut acc = <G as CurveAffine>::Projective::zero();
-                    for (bases, exps) in bases.chunks(CHUNK_SIZE).zip(exps.chunks(CHUNK_SIZE)) {
+                    for (bases, exps) in bases.chunks(chunk_size).zip(exps.chunks(chunk_size)) {
                         let result = kern.multiexp(bases, exps, bases.len()).unwrap();
                         acc.add_assign(&result);
                     }
