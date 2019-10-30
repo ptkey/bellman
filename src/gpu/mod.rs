@@ -40,7 +40,7 @@ use log::info;
 #[cfg(feature = "gpu")]
 lazy_static! {
     pub static ref BLS12_KERNELS: Vec<ProQue> = {
-        get_devices(CPU_INTEL_PLATFORM_NAME)
+        get_devices(GPU_NVIDIA_PLATFORM_NAME)
             .unwrap_or(Vec::new())
             .iter()
             .map(|d| {
