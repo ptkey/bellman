@@ -4,7 +4,7 @@ use std::cmp;
 use ff::PrimeField;
 use super::error::{GPUResult, GPUError};
 use super::structs;
-use super::utils;
+use super::BLS12_KERNELS;
 
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
 
@@ -23,8 +23,8 @@ pub struct FFTKernel<F> where F: PrimeField {
 impl<F> FFTKernel<F> where F: PrimeField {
 
     pub fn create(n: u32) -> GPUResult<FFTKernel::<F>> {
-        if utils::BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let pq = utils::BLS12_KERNELS[0].clone();
+        if BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        let pq = BLS12_KERNELS[0].clone();
         let srcbuff = Buffer::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;

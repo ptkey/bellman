@@ -6,7 +6,7 @@ use ff::{PrimeField, ScalarEngine};
 use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
 use super::structs;
-use super::utils;
+use super::BLS12_KERNELS;
 use crossbeam::thread;
 
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
@@ -138,8 +138,8 @@ pub struct MultiexpKernel<E> where E: Engine {
 impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create(chunk_size: usize) -> GPUResult<MultiexpKernel<E>> {
-        if utils::BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let kernels : Vec<_> = utils::BLS12_KERNELS.iter().map(|pq| {
+        if BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        let kernels : Vec<_> = BLS12_KERNELS.iter().map(|pq| {
             SingleMultiexpKernel::<E>::create(pq.clone(), chunk_size as u32)
         }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
         info!("Multiexp: {} working device(s) selected.", kernels.len());

@@ -30,3 +30,25 @@ pub use self::multiexp::*;
 mod nogpu;
 #[cfg(not (feature = "gpu"))]
 pub use self::nogpu::*;
+
+use paired::bls12_381::Bls12;
+use ocl::ProQue;
+use log::info;
+lazy_static! {
+    pub static ref BLS12_KERNELS: Vec<ProQue> = {
+        get_devices(CPU_INTEL_PLATFORM_NAME)
+            .unwrap_or(Vec::new())
+            .iter()
+            .map(|d| {
+                let src = sources::kernel::<Bls12>();
+                ProQue::builder().device(d).src(src).build()
+            })
+            .filter(|res| res.is_ok())
+            .map(|res| {
+                let pq = res.unwrap();
+                info!("Kernel initialized for device: {}", pq.device().name().unwrap_or("Unknown".to_string()));
+                pq
+            })
+            .collect()
+    };
+}
