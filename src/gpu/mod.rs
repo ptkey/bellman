@@ -31,9 +31,13 @@ mod nogpu;
 #[cfg(not (feature = "gpu"))]
 pub use self::nogpu::*;
 
+#[cfg(feature = "gpu")]
 use paired::bls12_381::Bls12;
+#[cfg(feature = "gpu")]
 use ocl::ProQue;
+#[cfg(feature = "gpu")]
 use log::info;
+#[cfg(feature = "gpu")]
 lazy_static! {
     pub static ref BLS12_KERNELS: Vec<ProQue> = {
         get_devices(CPU_INTEL_PLATFORM_NAME)
