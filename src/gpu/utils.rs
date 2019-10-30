@@ -1,7 +1,6 @@
-use ocl::{Device, Platform, ProQue};
+use ocl::{Device, Platform};
 use std::panic;
 use super::error::{GPUResult, GPUError};
-use super::sources;
 
 pub const GPU_NVIDIA_PLATFORM_NAME : &str = "NVIDIA CUDA";
 pub const CPU_INTEL_PLATFORM_NAME : &str = "Intel(R) CPU Runtime for OpenCL(TM) Applications";
