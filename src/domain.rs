@@ -549,13 +549,13 @@ pub fn gpu_fft_supported<E>(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel<E::Fr>>
     let test_size : u32 = 1 << log_test_size;
     use rand::Rand;
     let rng = &mut rand::thread_rng();
-    let mut kern = gpu::FFTKernel::create(test_size)?;
+    let mut kern = gpu::FFTKernel::create(1 << log_d)?;
     let elems = (0..test_size).map(|_| Scalar::<E>(E::Fr::rand(rng))).collect::<Vec<_>>();
     let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
     let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
     gpu_fft(&mut kern, &mut v1.coeffs, &v1.omega, log_test_size)?;
     serial_fft(&mut v2.coeffs, &v2.omega, log_test_size);
-    if v1.coeffs == v2.coeffs { Ok(gpu::FFTKernel::create(1 << log_d)?) }
+    if v1.coeffs == v2.coeffs { Ok(kern) }
     else { Err(gpu::GPUError {msg: "GPU FFT not supported!".to_string()} ) }
 }
 
