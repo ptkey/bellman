@@ -45,12 +45,17 @@ lazy_static! {
             .iter()
             .map(|d| {
                 let src = sources::kernel::<Bls12>();
-                ProQue::builder().device(d).src(src).build()
+                (d, ProQue::builder().device(d).src(src).build())
             })
-            .filter(|res| res.is_ok())
-            .map(|res| {
+            .filter(|(d, res)| {
+                if res.is_err() {
+                    info!("Cannot compile kernel for device: {}", d.name().unwrap_or("Unknown".to_string()));
+                }
+                res.is_ok()
+            })
+            .map(|(d, res)| {
                 let pq = res.unwrap();
-                info!("Kernel initialized for device: {}", pq.device().name().unwrap_or("Unknown".to_string()));
+                info!("Kernel compiled for device: {}", d.name().unwrap_or("Unknown".to_string()));
                 pq
             })
             .collect()
