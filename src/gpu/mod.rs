@@ -41,22 +41,20 @@ use log::info;
 lazy_static! {
     pub static ref BLS12_KERNELS: Vec<ProQue> = {
         get_devices(GPU_NVIDIA_PLATFORM_NAME)
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|d| {
                 let src = sources::kernel::<Bls12>();
                 (d, ProQue::builder().device(d).src(src).build())
             })
-            .filter(|(d, res)| {
+            .filter_map(|(d, res)| {
                 if res.is_err() {
                     info!("Cannot compile kernel for device: {}", d.name().unwrap_or("Unknown".to_string()));
+                    return None;
                 }
-                res.is_ok()
-            })
-            .map(|(d, res)| {
                 let pq = res.unwrap();
                 info!("Kernel compiled for device: {}", d.name().unwrap_or("Unknown".to_string()));
-                pq
+                Some(pq)
             })
             .collect()
     };
