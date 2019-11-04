@@ -1,5 +1,5 @@
 use log::info;
-use ocl::{ProQue, Buffer, MemFlags, Program, Platform, Context, Queue, Kernel, Device};
+use ocl::{ProQue, Buffer, MemFlags, Program, Platform, Context, Queue, Kernel, Device, EventList};
 use paired::Engine;
 use std::sync::Arc;
 use ff::{PrimeField, ScalarEngine};
@@ -92,7 +92,8 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         if sz == std::mem::size_of::<E::G1Affine>() {
             let tbases = unsafe { std::mem::transmute::<&[G], &[structs::CurveAffineStruct<E::G1Affine>]>(bases) };
             self.g1_base_buffer.write(tbases).enq()?;
-            let kernel = Kernel::builder()//self.proque.kernel_builder("G1_bellman_multiexp")
+            let mut event_list = EventList::new();
+            let mut kernel = Kernel::builder()//self.proque.kernel_builder("G1_bellman_multiexp")
                 .program(&self.program)
                 .queue(self.queue.clone())
                 .name("G1_bellman_multiexp")
@@ -106,14 +107,20 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
                 .arg(NUM_WINDOWS as u32)
                 .arg(WINDOW_SIZE as u32)
                 .build()?;
+            unsafe { 
+              kernel.cmd().enew(&mut event_list).enq()?;
+              kernel.set_default_queue(self.queue.clone()).enq()?;
+            }
             unsafe { kernel.enq()?; }
+            event_list.wait_for()?;
             let tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [structs::CurveProjectiveStruct::<E::G1>]>(&mut res) };
             self.g1_result_buffer.read(tres).enq()?;
 
         } else if sz == std::mem::size_of::<E::G2Affine>() {
             let tbases = unsafe { std::mem::transmute::<&[G], &[structs::CurveAffineStruct<E::G2Affine>]>(bases) };
             self.g2_base_buffer.write(tbases).enq()?;
-            let kernel = Kernel::builder()//self.proque.kernel_builder("G2_bellman_multiexp")
+            let mut event_list = EventList::new();
+            let mut kernel = Kernel::builder()//self.proque.kernel_builder("G2_bellman_multiexp")
                 .program(&self.program)
                 .queue(self.queue.clone())
                 .name("G2_bellman_multiexp")
@@ -127,7 +134,13 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
                 .arg(NUM_WINDOWS as u32)
                 .arg(WINDOW_SIZE as u32)
                 .build()?;
+            unsafe { 
+              kernel.cmd().enew(&mut event_list).enq()?;
+              kernel.set_default_queue(self.queue.clone()).enq()?;
+            }
             unsafe { kernel.enq()?; }
+            event_list.wait_for()?;
+
             let tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [structs::CurveProjectiveStruct::<E::G2>]>(&mut res) };
             self.g2_result_buffer.read(tres).enq()?;
         } else {

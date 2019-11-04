@@ -1,5 +1,5 @@
 use log::info;
-use ocl::{ProQue, Buffer, MemFlags, Platform, Context, Kernel, Queue, Program};
+use ocl::{ProQue, Buffer, MemFlags, Platform, Context, Kernel, Queue, Program, EventList};
 use std::cmp;
 use ff::PrimeField;
 use super::error::{GPUResult, GPUError};
@@ -77,7 +77,8 @@ impl<F> FFTKernel<F> where F: PrimeField {
     fn radix_fft_round(&mut self, lgn: u32, lgp: u32, deg: u32, max_deg: u32, in_src: bool) -> ocl::Result<()> {
         let n = 1u32 << lgn;
         let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
-        let kernel = Kernel::builder()//self.proque.kernel_builder("radix_fft")
+        let mut event_list = EventList::new();
+        let mut kernel = Kernel::builder()//self.proque.kernel_builder("radix_fft")
             .program(&self.program)
             .queue(self.queue.clone())
             .name("radix_fft")
@@ -93,7 +94,12 @@ impl<F> FFTKernel<F> where F: PrimeField {
             .arg(deg)
             .arg(max_deg)
             .build()?;
+        unsafe { 
+          kernel.cmd().enew(&mut event_list).enq()?;
+          kernel.set_default_queue(self.queue.clone()).enq()?;
+        }
         unsafe { kernel.enq()?; } // Running a GPU kernel is unsafe!
+        event_list.wait_for()?;
         Ok(())
     }
 
@@ -159,7 +165,8 @@ impl<F> FFTKernel<F> where F: PrimeField {
         let ta = unsafe { std::mem::transmute::<&mut [F], &mut [structs::PrimeFieldStruct::<F>]>(a) };
         let field = structs::PrimeFieldStruct::<F>(*field);
         self.fft_src_buffer.write(&*ta).enq()?;
-        let kernel = Kernel::builder()//self.proque.kernel_builder("mul_by_field")
+        let mut event_list = EventList::new();
+        let mut kernel = Kernel::builder()//self.proque.kernel_builder("mul_by_field")
             .program(&self.program)
             .queue(self.queue.clone())
             .name("mul_by_field")
@@ -168,7 +175,12 @@ impl<F> FFTKernel<F> where F: PrimeField {
             .arg(n)
             .arg(field)
             .build()?;
+        unsafe { 
+          kernel.cmd().enew(&mut event_list).enq()?;
+          kernel.set_default_queue(self.queue.clone()).enq()?;
+        }
         unsafe { kernel.enq()?; }
+        event_list.wait_for()?;
         self.fft_src_buffer.read(ta).enq()?;
         //self.proque.finish()?;
         Ok(())
