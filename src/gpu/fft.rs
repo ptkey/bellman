@@ -1,10 +1,11 @@
 use log::info;
-use ocl::{ProQue, Buffer, MemFlags};
+use ocl::{ProQue, Buffer, MemFlags, Platform, Context, Kernel, Queue, Program};
 use std::cmp;
 use ff::PrimeField;
 use super::error::{GPUResult, GPUError};
 use super::structs;
 use super::BLS12_KERNELS;
+use super::utils;
 
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
 
@@ -13,7 +14,10 @@ const MAX_RADIX_DEGREE : u32 = 8; // Radix256
 const MAX_LOCAL_WORK_SIZE_DEGREE : u32 = 7; // 128
 
 pub struct FFTKernel<F> where F: PrimeField {
-    proque: ProQue,
+    //proque: ProQue,
+    program: Program,
+    context: Context,
+    queue: Queue,
     fft_src_buffer: Buffer<structs::PrimeFieldStruct<F>>,
     fft_dst_buffer: Buffer<structs::PrimeFieldStruct<F>>,
     fft_pq_buffer: Buffer<structs::PrimeFieldStruct<F>>,
@@ -24,24 +28,41 @@ impl<F> FFTKernel<F> where F: PrimeField {
 
     pub fn create(n: u32) -> GPUResult<FFTKernel::<F>> {
         if BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let pq = BLS12_KERNELS[0].clone();
-        let srcbuff = Buffer::builder().queue(pq.queue().clone())
+        let pcd = BLS12_KERNELS[0].clone();
+
+        // let platform = Platform::list().into_iter().find(|&plat|
+        //     match plat.name() {
+        //         Ok(plat) => plat == utils::GPU_NVIDIA_PLATFORM_NAME,
+        //         Err(_) => false
+        //     });
+
+        // let devices = &utils::GPU_NVIDIA_DEVICES;
+        // if devices.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        // let device = devices[0]; // Select the first device for FFT
+
+        // let context = Context::builder().platform(platform.unwrap()).build().unwrap();
+        let q = Queue::new(&pcd.1, pcd.2, None).unwrap();
+
+        let srcbuff = Buffer::builder().queue(q.clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
-        let dstbuff = Buffer::builder().queue(pq.queue().clone())
+        let dstbuff = Buffer::builder().queue(q.clone())
             .flags(MemFlags::new().read_write()).len(n)
             .build()?;
-        let pqbuff = Buffer::builder().queue(pq.queue().clone())
+        let pqbuff = Buffer::builder().queue(q.clone())
             .flags(MemFlags::new().read_write()).len(1 << MAX_RADIX_DEGREE >> 1)
             .build()?;
-        let omgbuff = Buffer::builder().queue(pq.queue().clone())
+        let omgbuff = Buffer::builder().queue(q.clone())
             .flags(MemFlags::new().read_write()).len(LOG2_MAX_ELEMENTS)
             .build()?;
 
         info!("FFT: 1 working device(s) selected.");
-        info!("FFT: Device 0: {}", pq.device().name()?);
+        //info!("FFT: Device 0: {}", pq.device().name()?);
 
-        Ok(FFTKernel {proque: pq,
+        Ok(FFTKernel {//proque: pq,
+                      program: pcd.0,
+                      context: pcd.1,
+                      queue: q,
                       fft_src_buffer: srcbuff,
                       fft_dst_buffer: dstbuff,
                       fft_pq_buffer: pqbuff,
@@ -56,7 +77,10 @@ impl<F> FFTKernel<F> where F: PrimeField {
     fn radix_fft_round(&mut self, lgn: u32, lgp: u32, deg: u32, max_deg: u32, in_src: bool) -> ocl::Result<()> {
         let n = 1u32 << lgn;
         let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
-        let kernel = self.proque.kernel_builder("radix_fft")
+        let kernel = Kernel::builder()//self.proque.kernel_builder("radix_fft")
+            .program(&self.program)
+            .queue(self.queue.clone())
+            .name("radix_fft")
             .global_work_size([n >> deg << lwsd])
             .local_work_size(1 << lwsd)
             .arg(if in_src { &self.fft_src_buffer } else { &self.fft_dst_buffer })
@@ -123,7 +147,7 @@ impl<F> FFTKernel<F> where F: PrimeField {
         }
         if in_src { self.fft_src_buffer.read(ta).enq()?; }
         else { self.fft_dst_buffer.read(ta).enq()?; }
-        self.proque.finish()?; // Wait for all commands in the queue (Including read command)
+        //self.proque.finish()?; // Wait for all commands in the queue (Including read command)
 
         Ok(())
     }
@@ -135,7 +159,10 @@ impl<F> FFTKernel<F> where F: PrimeField {
         let ta = unsafe { std::mem::transmute::<&mut [F], &mut [structs::PrimeFieldStruct::<F>]>(a) };
         let field = structs::PrimeFieldStruct::<F>(*field);
         self.fft_src_buffer.write(&*ta).enq()?;
-        let kernel = self.proque.kernel_builder("mul_by_field")
+        let kernel = Kernel::builder()//self.proque.kernel_builder("mul_by_field")
+            .program(&self.program)
+            .queue(self.queue.clone())
+            .name("mul_by_field")
             .global_work_size([n])
             .arg(&self.fft_src_buffer)
             .arg(n)
@@ -143,7 +170,7 @@ impl<F> FFTKernel<F> where F: PrimeField {
             .build()?;
         unsafe { kernel.enq()?; }
         self.fft_src_buffer.read(ta).enq()?;
-        self.proque.finish()?;
+        //self.proque.finish()?;
         Ok(())
     }
 }

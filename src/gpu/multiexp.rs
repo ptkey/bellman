@@ -1,5 +1,5 @@
 use log::info;
-use ocl::{ProQue, Buffer, MemFlags};
+use ocl::{ProQue, Buffer, MemFlags, Program, Platform, Context, Queue, Kernel, Device};
 use paired::Engine;
 use std::sync::Arc;
 use ff::{PrimeField, ScalarEngine};
@@ -8,6 +8,7 @@ use super::error::{GPUResult, GPUError};
 use super::structs;
 use super::BLS12_KERNELS;
 use crossbeam::thread;
+use super::utils;
 
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
 
@@ -23,7 +24,9 @@ const BUCKET_LEN : usize = 1 << WINDOW_SIZE;
 
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E> where E: Engine {
-    proque: ProQue,
+    //proque: ProQue,
+    program: Program,
+    queue: Queue,
 
     g1_base_buffer: Buffer<structs::CurveAffineStruct<E::G1Affine>>,
     g1_bucket_buffer: Buffer<structs::CurveProjectiveStruct<E::G1>>,
@@ -38,18 +41,31 @@ pub struct SingleMultiexpKernel<E> where E: Engine {
 
 impl<E> SingleMultiexpKernel<E> where E: Engine {
 
-    pub fn create(pq: ProQue, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
-        let g1basebuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
-        let g1buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
-        let g1resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
+    pub fn create(p: Program, c: Context, d: Device, n: u32, index: usize) -> GPUResult<SingleMultiexpKernel<E>> {
+        // let platform = Platform::list().into_iter().find(|&plat|
+        //     match plat.name() {
+        //         Ok(plat) => plat == utils::GPU_NVIDIA_PLATFORM_NAME,
+        //         Err(_) => false
+        //     });
 
-        let g2basebuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
-        let g2buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
-        let g2resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
+        // let devices = &utils::GPU_NVIDIA_DEVICES;
+        // if devices.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        // let device = devices[index]; // Select the ith device for the multiexp
 
-        let expbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
+        // let context = Context::builder().platform(platform.unwrap()).build().unwrap();
+        let q = Queue::new(&c, d, None).unwrap();
 
-        Ok(SingleMultiexpKernel {proque: pq,
+        let g1basebuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(n).build()?;
+        let g1buckbuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
+        let g1resbuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
+
+        let g2basebuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(n).build()?;
+        let g2buckbuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
+        let g2resbuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
+
+        let expbuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(n).build()?;
+
+        Ok(SingleMultiexpKernel {program: p, queue: q,
             g1_base_buffer: g1basebuff, g1_bucket_buffer: g1buckbuff, g1_result_buffer: g1resbuff,
             g2_base_buffer: g2basebuff, g2_bucket_buffer: g2buckbuff, g2_result_buffer: g2resbuff,
             exp_buffer: expbuff})
@@ -76,7 +92,10 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         if sz == std::mem::size_of::<E::G1Affine>() {
             let tbases = unsafe { std::mem::transmute::<&[G], &[structs::CurveAffineStruct<E::G1Affine>]>(bases) };
             self.g1_base_buffer.write(tbases).enq()?;
-            let kernel = self.proque.kernel_builder("G1_bellman_multiexp")
+            let kernel = Kernel::builder()//self.proque.kernel_builder("G1_bellman_multiexp")
+                .program(&self.program)
+                .queue(self.queue.clone())
+                .name("G1_bellman_multiexp")
                 .global_work_size([gws])
                 .arg(&self.g1_base_buffer)
                 .arg(&self.g1_bucket_buffer)
@@ -94,7 +113,10 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         } else if sz == std::mem::size_of::<E::G2Affine>() {
             let tbases = unsafe { std::mem::transmute::<&[G], &[structs::CurveAffineStruct<E::G2Affine>]>(bases) };
             self.g2_base_buffer.write(tbases).enq()?;
-            let kernel = self.proque.kernel_builder("G2_bellman_multiexp")
+            let kernel = Kernel::builder()//self.proque.kernel_builder("G2_bellman_multiexp")
+                .program(&self.program)
+                .queue(self.queue.clone())
+                .name("G2_bellman_multiexp")
                 .global_work_size([gws])
                 .arg(&self.g2_base_buffer)
                 .arg(&self.g2_bucket_buffer)
@@ -139,13 +161,19 @@ impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create(chunk_size: usize) -> GPUResult<MultiexpKernel<E>> {
         if BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let kernels : Vec<_> = BLS12_KERNELS.iter().map(|pq| {
-            SingleMultiexpKernel::<E>::create(pq.clone(), chunk_size as u32)
-        }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
-        info!("Multiexp: {} working device(s) selected.", kernels.len());
-        for (i, k) in kernels.iter().enumerate() {
-            info!("Multiexp: Device {}: {}", i, k.proque.device().name()?);
+        // let kernels : Vec<_> = BLS12_KERNELS.iter().map(|p| {
+        //     SingleMultiexpKernel::<E>::create(p.clone(), chunk_size as u32)
+        // }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
+
+        let mut kernels = Vec::new();
+        for (i, p) in BLS12_KERNELS.iter().enumerate() {
+          kernels.push(SingleMultiexpKernel::<E>::create(p.0.clone(), p.1.clone(), p.2.clone(), chunk_size as u32, i).unwrap())
         }
+
+        // info!("Multiexp: {} working device(s) selected.", kernels.len());
+        // for (i, k) in kernels.iter().enumerate() {
+        //     info!("Multiexp: Device {}: {}", i, k.proque.device().name()?);
+        // }
         return Ok(MultiexpKernel::<E>{kernels, chunk_size});
     }
 
