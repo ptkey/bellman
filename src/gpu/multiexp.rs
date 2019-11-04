@@ -176,7 +176,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
                 threads.push(s.spawn(move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
                     let mut acc = <G as CurveAffine>::Projective::zero();
                     for (bases, exps) in bases.chunks(device_chunk_size).zip(exps.chunks(device_chunk_size)) {
-                        let result = kern.multiexp(bases, exps, bases.len()).unwrap();
+                        let result = kern.multiexp(bases, exps, bases.len())?;
                         acc.add_assign(&result);
                     }
                     Ok(acc)
