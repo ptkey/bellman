@@ -372,7 +372,7 @@ pub fn gpu_multiexp_consistency() {
     use rand::{self, Rand};
 
     const CHUNK_SIZE: usize = 1048576;
-    const MAX_LOG_D: usize = 20;
+    const MAX_LOG_D: usize = 24;
     const START_LOG_D: usize = 10;
     let mut kern = gpu::MultiexpKernel::<Bls12>::create(CHUNK_SIZE).ok();
     if kern.is_none() { panic!("Cannot initialize kernel!"); }

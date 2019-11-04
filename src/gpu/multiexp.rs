@@ -179,10 +179,12 @@ impl<E> MultiexpKernel<E> where E: Engine {
         // }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
 
         let mut kernels = Vec::new();
-        for (i, p) in BLS12_KERNELS.iter().enumerate() {
-          kernels.push(SingleMultiexpKernel::<E>::create(p.0.clone(), p.1.clone(), p.2.clone(), chunk_size as u32, i).unwrap())
-        }
+        // for (i, p) in BLS12_KERNELS.iter().enumerate() {
+        //   kernels.push(SingleMultiexpKernel::<E>::create(p.0.clone(), p.1.clone(), p.2.clone(), chunk_size as u32, i).unwrap())
+        // }
 
+        kernels.push(SingleMultiexpKernel::<E>::create(BLS12_KERNELS[0].0.clone(), BLS12_KERNELS[0].1.clone(), BLS12_KERNELS[0].2.clone(), chunk_size as u32, 0).unwrap());
+        
         // info!("Multiexp: {} working device(s) selected.", kernels.len());
         // for (i, k) in kernels.iter().enumerate() {
         //     info!("Multiexp: Device {}: {}", i, k.proque.device().name()?);
