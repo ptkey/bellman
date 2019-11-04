@@ -138,7 +138,7 @@ pub struct MultiexpKernel<E> where E: Engine {
 impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create(chunk_size: usize) -> GPUResult<MultiexpKernel<E>> {
-        if BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        if BLS12_KERNELS.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
         let kernels : Vec<_> = BLS12_KERNELS.iter().map(|pq| {
             SingleMultiexpKernel::<E>::create(pq.clone(), chunk_size as u32)
         }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();

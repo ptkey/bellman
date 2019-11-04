@@ -23,7 +23,7 @@ pub struct FFTKernel<F> where F: PrimeField {
 impl<F> FFTKernel<F> where F: PrimeField {
 
     pub fn create(n: u32) -> GPUResult<FFTKernel::<F>> {
-        if BLS12_KERNELS.len() == 0 { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        if BLS12_KERNELS.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
         let pq = BLS12_KERNELS[0].clone();
         let srcbuff = Buffer::builder().queue(pq.queue().clone())
             .flags(MemFlags::new().read_write()).len(n)
