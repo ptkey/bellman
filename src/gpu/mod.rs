@@ -51,6 +51,8 @@ lazy_static! {
                 Ok(p) => p == GPU_NVIDIA_PLATFORM_NAME,
                 Err(_) => false
             });
+        
+        let context = Context::builder().platform(platform.unwrap()).build().unwrap();
 
         let devices = Device::list_all(platform.unwrap()).unwrap();
         for d in devices {
@@ -58,7 +60,7 @@ lazy_static! {
             println!("device {:?}", d.name());
             let src = sources::kernel::<Bls12>();
 
-            let context = Context::builder().platform(platform.unwrap()).build().unwrap();
+            //let context = Context::builder().platform(platform.unwrap()).build().unwrap();
             let program = Program::builder().src(src).devices(d).build(&context).unwrap();
             //let queue = Queue::new(&context, d, None);
 

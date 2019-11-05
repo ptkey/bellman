@@ -53,7 +53,7 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         // let device = devices[index]; // Select the ith device for the multiexp
 
         // let context = Context::builder().platform(platform.unwrap()).build().unwrap();
-        let q = Queue::new(&c, d, None).unwrap();
+        let q = Queue::new(&c, d, Some(ocl::core::QUEUE_PROFILING_ENABLE))?;
 
         let g1basebuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(n).build()?;
         let g1buckbuff = Buffer::builder().queue(q.clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;

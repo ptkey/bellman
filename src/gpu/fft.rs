@@ -41,7 +41,7 @@ impl<F> FFTKernel<F> where F: PrimeField {
         // let device = devices[0]; // Select the first device for FFT
 
         // let context = Context::builder().platform(platform.unwrap()).build().unwrap();
-        let q = Queue::new(&pcd.1, pcd.2, None).unwrap();
+        let q = Queue::new(&pcd.1, pcd.2, Some(ocl::core::QUEUE_PROFILING_ENABLE))?;
 
         let srcbuff = Buffer::builder().queue(q.clone())
             .flags(MemFlags::new().read_write()).len(n)
