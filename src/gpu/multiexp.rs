@@ -142,11 +142,10 @@ pub struct MultiexpKernel<E> where E: Engine {
 impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create(chunk_size: usize) -> GPUResult<MultiexpKernel<E>> {
-        let devices = &GPU_NVIDIA_DEVICES;
-        if devices.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let kernels : Vec<_> = devices.iter().map(|d| {
+        let kernels : Vec<_> = GPU_NVIDIA_DEVICES.iter().map(|d| {
             SingleMultiexpKernel::<E>::create(*d, chunk_size as u32)
         }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
+        if kernels.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
             info!("Multiexp: Device {}: {}", i, k.proque.device().name()?);
