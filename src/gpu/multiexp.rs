@@ -109,9 +109,9 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
                 .build()?;
             unsafe { 
               kernel.cmd().enew(&mut event_list).enq()?;
-              kernel.set_default_queue(self.queue.clone()).enq()?;
+              //kernel.set_default_queue(self.queue.clone()).enq()?;
             }
-            unsafe { kernel.enq()?; }
+            //unsafe { kernel.enq()?; }
             event_list.wait_for()?;
             let tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [structs::CurveProjectiveStruct::<E::G1>]>(&mut res) };
             self.g1_result_buffer.read(tres).enq()?;
@@ -136,9 +136,9 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
                 .build()?;
             unsafe { 
               kernel.cmd().enew(&mut event_list).enq()?;
-              kernel.set_default_queue(self.queue.clone()).enq()?;
+              //kernel.set_default_queue(self.queue.clone()).enq()?;
             }
-            unsafe { kernel.enq()?; }
+            //unsafe { kernel.enq()?; }
             event_list.wait_for()?;
 
             let tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [structs::CurveProjectiveStruct::<E::G2>]>(&mut res) };
@@ -179,11 +179,11 @@ impl<E> MultiexpKernel<E> where E: Engine {
         // }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
 
         let mut kernels = Vec::new();
-        // for (i, p) in BLS12_KERNELS.iter().enumerate() {
-        //   kernels.push(SingleMultiexpKernel::<E>::create(p.0.clone(), p.1.clone(), p.2.clone(), chunk_size as u32, i).unwrap())
-        // }
+        for (i, p) in BLS12_KERNELS.iter().enumerate() {
+          kernels.push(SingleMultiexpKernel::<E>::create(p.0.clone(), p.1.clone(), p.2.clone(), chunk_size as u32, i).unwrap())
+        }
 
-        kernels.push(SingleMultiexpKernel::<E>::create(BLS12_KERNELS[0].0.clone(), BLS12_KERNELS[0].1.clone(), BLS12_KERNELS[0].2.clone(), chunk_size as u32, 0).unwrap());
+        //kernels.push(SingleMultiexpKernel::<E>::create(BLS12_KERNELS[0].0.clone(), BLS12_KERNELS[0].1.clone(), BLS12_KERNELS[0].2.clone(), chunk_size as u32, 0).unwrap());
         
         // info!("Multiexp: {} working device(s) selected.", kernels.len());
         // for (i, k) in kernels.iter().enumerate() {

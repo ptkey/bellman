@@ -96,9 +96,9 @@ impl<F> FFTKernel<F> where F: PrimeField {
             .build()?;
         unsafe { 
           kernel.cmd().enew(&mut event_list).enq()?;
-          kernel.set_default_queue(self.queue.clone()).enq()?;
+          //kernel.set_default_queue(self.queue.clone()).enq()?;
         }
-        unsafe { kernel.enq()?; } // Running a GPU kernel is unsafe!
+        //unsafe { kernel.enq()?; } // Running a GPU kernel is unsafe!
         event_list.wait_for()?;
         Ok(())
     }
@@ -177,9 +177,9 @@ impl<F> FFTKernel<F> where F: PrimeField {
             .build()?;
         unsafe { 
           kernel.cmd().enew(&mut event_list).enq()?;
-          kernel.set_default_queue(self.queue.clone()).enq()?;
+          //kernel.set_default_queue(self.queue.clone()).enq()?;
         }
-        unsafe { kernel.enq()?; }
+        //unsafe { kernel.enq()?; }
         event_list.wait_for()?;
         self.fft_src_buffer.read(ta).enq()?;
         //self.proque.finish()?;
