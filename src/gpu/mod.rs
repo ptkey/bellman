@@ -32,28 +32,10 @@ mod nogpu;
 pub use self::nogpu::*;
 
 #[cfg(feature = "gpu")]
-use ocl::ProQue;
+use ocl::Device;
 #[cfg(feature = "gpu")]
 lazy_static! {
-    pub static ref BLS12_KERNELS: Vec<ProQue> = {
-        use paired::bls12_381::Bls12;
-        use log::info;
-        get_devices(GPU_NVIDIA_PLATFORM_NAME)
-            .unwrap_or_default()
-            .iter()
-            .map(|d| {
-                let src = sources::kernel::<Bls12>();
-                (d, ProQue::builder().device(d).src(src).build())
-            })
-            .filter_map(|(d, res)| {
-                if res.is_err() {
-                    info!("Cannot compile kernel for device: {}", d.name().unwrap_or("Unknown".to_string()));
-                    return None;
-                }
-                let pq = res.unwrap();
-                info!("Kernel compiled for device: {}", d.name().unwrap_or("Unknown".to_string()));
-                Some(pq)
-            })
-            .collect()
+    pub static ref GPU_NVIDIA_DEVICES: Vec<Device> = {
+        get_devices(GPU_NVIDIA_PLATFORM_NAME).unwrap_or(Vec::new())
     };
 }

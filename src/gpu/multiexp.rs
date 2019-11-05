@@ -1,12 +1,13 @@
 use log::info;
-use ocl::{ProQue, Buffer, MemFlags};
+use ocl::{ProQue, Buffer, MemFlags, Device};
 use paired::Engine;
 use std::sync::Arc;
 use ff::{PrimeField, ScalarEngine};
 use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
 use super::structs;
-use super::BLS12_KERNELS;
+use super::sources;
+use super::GPU_NVIDIA_DEVICES;
 use crossbeam::thread;
 
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
@@ -38,7 +39,10 @@ pub struct SingleMultiexpKernel<E> where E: Engine {
 
 impl<E> SingleMultiexpKernel<E> where E: Engine {
 
-    pub fn create(pq: ProQue, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
+    pub fn create(d: Device, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
+        let src = sources::kernel::<E>();
+        let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
+
         let g1basebuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
         let g1buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
         let g1resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
@@ -138,9 +142,10 @@ pub struct MultiexpKernel<E> where E: Engine {
 impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create(chunk_size: usize) -> GPUResult<MultiexpKernel<E>> {
-        if BLS12_KERNELS.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
-        let kernels : Vec<_> = BLS12_KERNELS.iter().map(|pq| {
-            SingleMultiexpKernel::<E>::create(pq.clone(), chunk_size as u32)
+        let devices = &GPU_NVIDIA_DEVICES;
+        if devices.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
+        let kernels : Vec<_> = devices.iter().map(|d| {
+            SingleMultiexpKernel::<E>::create(*d, chunk_size as u32)
         }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
