@@ -12,15 +12,8 @@ use crossbeam::thread;
 
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
 
-// Best params for RTX 2080Ti
-const NUM_GROUPS : usize = 334; // Partition the bases into `NUM_GROUPS` groups
-const WINDOW_SIZE : usize = 10; // Exponents are 255bit long, divide exponents into `WINDOW_SIZE` bit windows
-const NUM_WINDOWS : usize = 26; // Then we will have Ceil(256/`WINDOW_SIZE`) windows per exponent
-// So each group will have `NUM_WINDOWS` threads and as there are `NUM_GROUPS` groups, there will
-// be `NUM_GROUPS` * `NUM_WINDOWS` threads in total.
-
+const MAX_WINDOW_SIZE : usize = 10;
 const LOCAL_WORK_SIZE : usize = 256;
-const BUCKET_LEN : usize = 1 << WINDOW_SIZE;
 
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E> where E: Engine {
@@ -34,7 +27,9 @@ pub struct SingleMultiexpKernel<E> where E: Engine {
     g2_bucket_buffer: Buffer<structs::CurveProjectiveStruct<E::G2>>,
     g2_result_buffer: Buffer<structs::CurveProjectiveStruct<E::G2>>,
 
-    exp_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>
+    exp_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
+
+    num_groups: usize, window_size: usize
 }
 
 impl<E> SingleMultiexpKernel<E> where E: Engine {
@@ -43,20 +38,33 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         let src = sources::kernel::<E>();
         let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
 
+        let num_groups = 334;
+        let window_size = 10;
+
+        let exp_bits = std::mem::size_of::<E::Fr>() * 8;
+        let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
+        let bucket_len = 1 << window_size;
+        
+        // Each group will have `num_windows` threads and as there are `num_groups` groups, there will
+        // be `num_groups` * `num_windows` threads in total.
+        // Each thread will use `num_groups` * `num_windows` * `bucket_len` buckets.
+
         let g1basebuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
-        let g1buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
-        let g1resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
+        let g1buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(bucket_len * num_windows * num_groups).build()?;
+        let g1resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(num_windows * num_groups).build()?;
 
         let g2basebuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
-        let g2buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(BUCKET_LEN * NUM_WINDOWS * NUM_GROUPS).build()?;
-        let g2resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(NUM_WINDOWS * NUM_GROUPS).build()?;
+        let g2buckbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(bucket_len * num_windows * num_groups).build()?;
+        let g2resbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(num_windows * num_groups).build()?;
 
         let expbuff = Buffer::builder().queue(pq.queue().clone()).flags(MemFlags::new().read_write()).len(n).build()?;
 
         Ok(SingleMultiexpKernel {proque: pq,
             g1_base_buffer: g1basebuff, g1_bucket_buffer: g1buckbuff, g1_result_buffer: g1resbuff,
             g2_base_buffer: g2basebuff, g2_bucket_buffer: g2buckbuff, g2_result_buffer: g2resbuff,
-            exp_buffer: expbuff})
+            exp_buffer: expbuff,
+            num_groups: num_groups, window_size: window_size
+        })
     }
 
     pub fn multiexp<G>(&mut self,
@@ -67,13 +75,14 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
             where G: CurveAffine {
 
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
+        let num_windows = ((exp_bits as f64) / (self.window_size as f64)).ceil() as usize;
 
-        let mut res = vec![<G as CurveAffine>::Projective::zero(); NUM_WINDOWS * NUM_GROUPS];
+        let mut res = vec![<G as CurveAffine>::Projective::zero(); self.num_groups * num_windows];
         let texps = unsafe { std::mem::transmute::<&[<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr], &[structs::PrimeFieldStruct::<E::Fr>]>(exps) };
         self.exp_buffer.write(texps).enq()?;
 
         // Make global work size divisible by `LOCAL_WORK_SIZE`
-        let mut gws = NUM_WINDOWS * NUM_GROUPS;
+        let mut gws = num_windows * self.num_groups;
         gws += (LOCAL_WORK_SIZE - (gws % LOCAL_WORK_SIZE)) % LOCAL_WORK_SIZE;
 
         let sz = std::mem::size_of::<G>(); // Trick, used for dispatching between G1 and G2!
@@ -87,9 +96,9 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
                 .arg(n as u32)
-                .arg(NUM_GROUPS as u32)
-                .arg(NUM_WINDOWS as u32)
-                .arg(WINDOW_SIZE as u32)
+                .arg(self.num_groups as u32)
+                .arg(num_windows as u32)
+                .arg(self.window_size as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
             let tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [structs::CurveProjectiveStruct::<E::G1>]>(&mut res) };
@@ -105,9 +114,9 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
                 .arg(&self.g2_result_buffer)
                 .arg(&self.exp_buffer)
                 .arg(n as u32)
-                .arg(NUM_GROUPS as u32)
-                .arg(NUM_WINDOWS as u32)
-                .arg(WINDOW_SIZE as u32)
+                .arg(self.num_groups as u32)
+                .arg(num_windows as u32)
+                .arg(self.window_size as u32)
                 .build()?;
             unsafe { kernel.enq()?; }
             let tres = unsafe { std::mem::transmute::<&mut [<G as CurveAffine>::Projective], &mut [structs::CurveProjectiveStruct::<E::G2>]>(&mut res) };
@@ -120,11 +129,11 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         // of those `NUM_GROUPS` * `NUM_WINDOWS` threads.
         let mut acc = <G as CurveAffine>::Projective::zero();
         let mut bits = 0;
-        for i in 0..NUM_WINDOWS {
-            let w = std::cmp::min(WINDOW_SIZE, exp_bits - bits);
+        for i in 0..num_windows {
+            let w = std::cmp::min(self.window_size, exp_bits - bits);
             for _ in 0..w { acc.double(); }
-            for g in 0..NUM_GROUPS {
-                acc.add_assign(&res[g * NUM_WINDOWS + i]);
+            for g in 0..self.num_groups {
+                acc.add_assign(&res[g * num_windows + i]);
             }
             bits += w; // Process the next window
         }
