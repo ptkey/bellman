@@ -21,3 +21,7 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
         None => Err(GPUError {msg: "GPU platform not found!".to_string() })
     }
 }
+
+pub fn get_core_count(d: Device) -> usize {
+    return 4352; // RTX 2080Ti
+}

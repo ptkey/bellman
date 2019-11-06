@@ -7,6 +7,7 @@ use paired::{CurveAffine, CurveProjective};
 use super::error::{GPUResult, GPUError};
 use super::structs;
 use super::sources;
+use super::utils;
 use super::GPU_NVIDIA_DEVICES;
 use crossbeam::thread;
 
@@ -38,13 +39,13 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         let src = sources::kernel::<E>();
         let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
 
-        let num_groups = 334;
-        let window_size = 10;
-
+        let window_size = std::cmp::min(MAX_WINDOW_SIZE, (n as f64).ln().ceil() as usize);
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
         let bucket_len = 1 << window_size;
-        
+        // Observations show that we get the best performance when num_groups * num_windows ~= 2 * CUDA_CORES
+        let num_groups = 2 * utils::get_core_count(d) / num_windows;
+
         // Each group will have `num_windows` threads and as there are `num_groups` groups, there will
         // be `num_groups` * `num_windows` threads in total.
         // Each thread will use `num_groups` * `num_windows` * `bucket_len` buckets.
@@ -157,7 +158,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
         if kernels.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
-            info!("Multiexp: Device {}: {}", i, k.proque.device().name()?);
+            info!("Multiexp: Device {}: {} (Window-size: {}, Num-groups: {})", i, k.proque.device().name()?, k.window_size, k.num_groups);
         }
         return Ok(MultiexpKernel::<E>{kernels, chunk_size});
     }
