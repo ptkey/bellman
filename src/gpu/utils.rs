@@ -22,6 +22,21 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
     }
 }
 
-pub fn get_core_count(d: Device) -> usize {
-    return 4352; // RTX 2080Ti
+use std::collections::HashMap;
+lazy_static!{
+    static ref CORE_COUNTS: HashMap<&'static str, usize> = vec![
+        ("GeForce RTX 2080 Ti", 4352),
+        ("GeForce RTX 2080 SUPER", 3072),
+        ("GeForce RTX 2080", 2944),
+        ("GeForce GTX 1080 Ti", 3584),
+        ("GeForce GTX 1080", 2560),
+        ("GeForce GTX 1060", 1280),
+    ].into_iter().collect();
+}
+
+pub fn get_core_count(d: Device) -> GPUResult<usize> {
+    match CORE_COUNTS.get(&d.name()?[..]) {
+        Some(&cores) => Ok(cores),
+        None => Err(GPUError {msg: "Device unknown!".to_string() })
+    }
 }

@@ -44,7 +44,7 @@ impl<E> SingleMultiexpKernel<E> where E: Engine {
         let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
         let bucket_len = 1 << window_size;
         // Observations show that we get the best performance when num_groups * num_windows ~= 2 * CUDA_CORES
-        let num_groups = 2 * utils::get_core_count(d) / num_windows;
+        let num_groups = 2 * utils::get_core_count(d)? / num_windows;
 
         // Each group will have `num_windows` threads and as there are `num_groups` groups, there will
         // be `num_groups` * `num_windows` threads in total.
