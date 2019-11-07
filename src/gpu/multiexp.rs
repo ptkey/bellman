@@ -33,18 +33,40 @@ pub struct SingleMultiexpKernel<E> where E: Engine {
     num_groups: usize, window_size: usize
 }
 
+fn calc_num_groups(core_count: usize, num_windows: usize) -> usize {
+    // Observations show that we get the best performance when num_groups * num_windows ~= 2 * CUDA_CORES
+    return 2 * core_count / num_windows;
+}
+
+fn calc_window_size(n: usize, exp_bits: usize, core_count: usize) -> usize {
+    // window_size = ln(n / num_groups)
+    // num_windows = exp_bits / window_size
+    // num_groups = 2 * core_count / num_windows = 2 * core_count * window_size / exp_bits
+    // window_size = ln(n / num_groups) = ln(n * exp_bits / (2 * core_count * window_size))
+    // window_size = ln(exp_bits * n / (2 * core_count)) - ln(window_size)
+    //
+    // Thus we need to solve the following equation:
+    // window_size + ln(window_size) = ln(exp_bits * n / (2 * core_count))
+    let lower_bound = (((exp_bits * n) as f64) / ((2 * core_count) as f64)).ln();
+    for w in 0..MAX_WINDOW_SIZE {
+        if (w as f64) + (w as f64).ln() > lower_bound { return w; }
+    }
+    return MAX_WINDOW_SIZE;
+}
+
 impl<E> SingleMultiexpKernel<E> where E: Engine {
 
     pub fn create(d: Device, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
         let src = sources::kernel::<E>();
         let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
 
-        let window_size = std::cmp::min(MAX_WINDOW_SIZE, (n as f64).ln().ceil() as usize);
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
+        let core_count = utils::get_core_count(d)?;
+
+        let window_size = calc_window_size(n as usize, exp_bits, core_count);
         let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
         let bucket_len = 1 << window_size;
-        // Observations show that we get the best performance when num_groups * num_windows ~= 2 * CUDA_CORES
-        let num_groups = 2 * utils::get_core_count(d)? / num_windows;
+        let num_groups = calc_num_groups(core_count, num_windows);
 
         // Each group will have `num_windows` threads and as there are `num_groups` groups, there will
         // be `num_groups` * `num_windows` threads in total.
