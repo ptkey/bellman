@@ -346,13 +346,14 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-pub fn gpu_multiexp_supported<E>() -> gpu::GPUResult<gpu::MultiexpKernel<E>> where E: Engine {
+pub fn gpu_multiexp_supported<E>(log_d: u32) -> gpu::GPUResult<gpu::MultiexpKernel<E>> where E: Engine {
     const TEST_SIZE : u32 = 1024;
-    const CHUNK_SIZE: usize = 8388608;
+    const MAX_CHUNK_SIZE : usize = 8388608;
+    let chunk_size = std::cmp::min(MAX_CHUNK_SIZE, 1 << log_d);
     use rand::Rand;
     let pool = Worker::new();
     let rng = &mut rand::thread_rng();
-    let mut kern = Some(gpu::MultiexpKernel::<E>::create(CHUNK_SIZE)?);
+    let mut kern = Some(gpu::MultiexpKernel::<E>::create(chunk_size)?);
     let bases_g1 = Arc::new((0..TEST_SIZE).map(|_| E::G1::rand(rng).into_affine()).collect::<Vec<_>>());
     let bases_g2 = Arc::new((0..TEST_SIZE).map(|_| E::G2::rand(rng).into_affine()).collect::<Vec<_>>());
     let exps = Arc::new((0..TEST_SIZE).map(|_| E::Fr::rand(rng).into_repr()).collect::<Vec<_>>());
