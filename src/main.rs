@@ -64,7 +64,7 @@ fn main(){
 
         // Create a groth16 proof with our parameters.
         let proof = create_random_proof(c, &params, rng).unwrap();
-        println!("Total proof gen finished in {}s and {}ns", now.elapsed().as_secs(), now.elapsed().subsec_nanos()/1000000);
+        println!("Total proof gen finished in {}s and {}ms", now.elapsed().as_secs(), now.elapsed().subsec_nanos()/1000000);
 
         println!("{}", verify_proof(
             &pvk,
