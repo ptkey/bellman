@@ -18,6 +18,7 @@ use futures::Future;
 
 const MAX_WINDOW_SIZE : usize = 10;
 const LOCAL_WORK_SIZE : usize = 256;
+const SPEEDUP : f64 = 3.1f64; // GeForce RTX 2080Ti over AMD Ryzen 7
 
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E> where E: Engine {
@@ -204,7 +205,7 @@ impl<E> MultiexpKernel<E> where E: Engine {
         let bases = &bases[skip..(skip + n)];
         let exps = &exps[..n];
 
-        let cpu_n = n / (num_devices * 3 + 1);
+        let cpu_n = ((n as f64) / ((num_devices as f64) * SPEEDUP + 1f64)) as usize;
         let n = n - cpu_n;
         let (cpu_bases, bases) = bases.split_at(cpu_n);
         let (cpu_exps, exps) = exps.split_at(cpu_n);
