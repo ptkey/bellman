@@ -10,6 +10,9 @@ use super::sources;
 use super::utils;
 use super::GPU_NVIDIA_DEVICES;
 use crossbeam::thread;
+use crate::multiexp::{multiexp as cpu_multiexp, FullDensity};
+use crate::multicore::Worker;
+use futures::Future;
 
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
 
@@ -186,42 +189,55 @@ impl<E> MultiexpKernel<E> where E: Engine {
     }
 
     pub fn multiexp<G>(&mut self,
+            pool: &Worker,
             bases: Arc<Vec<G>>,
             exps: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,
             skip: usize,
             n: usize)
             -> GPUResult<(<G as CurveAffine>::Projective)>
             where G: CurveAffine {
-        if n == 0 {
-            return Ok(<G as CurveAffine>::Projective::zero());
-        }
 
         let num_devices = self.kernels.len();
-        let chunk_size = ((n as f64) / (num_devices as f64)).ceil() as usize;
         let device_chunk_size = self.chunk_size;
         // Bases are skipped by `self.1` elements, when converted from (Arc<Vec<G>>, usize) to Source
         // https://github.com/zkcrypto/bellman/blob/10c5010fd9c2ca69442dc9775ea271e286e776d8/src/multiexp.rs#L38
         let bases = &bases[skip..(skip + n)];
-
         let exps = &exps[..n];
+
+        let cpu_n = n / (num_devices * 3 + 1);
+        let n = n - cpu_n;
+        let (cpu_bases, bases) = bases.split_at(cpu_n);
+        let (cpu_exps, exps) = exps.split_at(cpu_n);
+
+        let chunk_size = ((n as f64) / (num_devices as f64)).ceil() as usize;
 
         match thread::scope(|s| -> Result<<G as CurveAffine>::Projective, GPUError> {
             let mut acc = <G as CurveAffine>::Projective::zero();
             let mut threads = Vec::new();
-            for ((bases, exps), kern) in bases.chunks(chunk_size).zip(exps.chunks(chunk_size)).zip(self.kernels.iter_mut()) {
-                threads.push(s.spawn(move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
-                    let mut acc = <G as CurveAffine>::Projective::zero();
-                    for (bases, exps) in bases.chunks(device_chunk_size).zip(exps.chunks(device_chunk_size)) {
-                        let result = kern.multiexp(bases, exps, bases.len())?;
-                        acc.add_assign(&result);
-                    }
-                    Ok(acc)
-                }));
+            if n > 0 {
+                for ((bases, exps), kern) in bases.chunks(chunk_size).zip(exps.chunks(chunk_size)).zip(self.kernels.iter_mut()) {
+                    threads.push(s.spawn(move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
+                        let mut acc = <G as CurveAffine>::Projective::zero();
+                        for (bases, exps) in bases.chunks(device_chunk_size).zip(exps.chunks(device_chunk_size)) {
+                            let result = kern.multiexp(bases, exps, bases.len())?;
+                            acc.add_assign(&result);
+                        }
+                        Ok(acc)
+                    }));
+                }
             }
+            let cpu_acc = cpu_multiexp(
+                &pool,
+                (Arc::new(cpu_bases.to_vec()), 0),
+                FullDensity,
+                Arc::new(cpu_exps.to_vec()),
+                &mut None
+            );
             for t in threads {
                 let result = t.join()?;
                 acc.add_assign(&result?);
             }
+            acc.add_assign(&cpu_acc.wait().unwrap());
             Ok(acc)
         }) {
             Ok(res) => { res },

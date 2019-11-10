@@ -282,7 +282,7 @@ where
         }
 
         let (bss, skip) = bases.clone().get();
-        let result = k.multiexp(bss.clone(), Arc::new(exps.clone()), skip, n).expect("GPU Multiexp failed!");
+        let result = k.multiexp(pool, bss.clone(), Arc::new(exps.clone()), skip, n).expect("GPU Multiexp failed!");
 
         return Box::new(pool.compute(move || { Ok(result) }))
     }
