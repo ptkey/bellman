@@ -19,6 +19,7 @@ use futures::Future;
 const MAX_WINDOW_SIZE : usize = 10;
 const LOCAL_WORK_SIZE : usize = 256;
 const SPEEDUP : f64 = 3.1f64; // GeForce RTX 2080Ti over AMD Ryzen 7
+const WINDOW_SIZE_OFFSET : usize = 1;
 
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E> where E: Engine {
@@ -53,7 +54,7 @@ fn calc_window_size(n: usize, exp_bits: usize, core_count: usize) -> usize {
     // window_size + ln(window_size) = ln(exp_bits * n / (2 * core_count))
     let lower_bound = (((exp_bits * n) as f64) / ((2 * core_count) as f64)).ln();
     for w in 0..MAX_WINDOW_SIZE {
-        if (w as f64) + (w as f64).ln() > lower_bound { return w; }
+        if (w as f64) + (w as f64).ln() > lower_bound { return w - WINDOW_SIZE_OFFSET; }
     }
     return MAX_WINDOW_SIZE;
 }
