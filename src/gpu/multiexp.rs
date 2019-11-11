@@ -19,6 +19,7 @@ const NUM_WINDOWS : usize = 26; // Then we will have Ceil(256/`WINDOW_SIZE`) win
 // So each group will have `NUM_WINDOWS` threads and as there are `NUM_GROUPS` groups, there will
 // be `NUM_GROUPS` * `NUM_WINDOWS` threads in total.
 
+const NUM_GPUS : usize = 1; // Flag for selecting number of GPUs to run proof with
 const LOCAL_WORK_SIZE : usize = 256;
 const BUCKET_LEN : usize = 1 << WINDOW_SIZE;
 
@@ -142,9 +143,19 @@ pub struct MultiexpKernel<E> where E: Engine {
 impl<E> MultiexpKernel<E> where E: Engine {
 
     pub fn create(chunk_size: usize) -> GPUResult<MultiexpKernel<E>> {
-        let kernels : Vec<_> = GPU_NVIDIA_DEVICES.iter().map(|d| {
-            SingleMultiexpKernel::<E>::create(*d, chunk_size as u32)
-        }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
+        let mut kernels = Vec::new();
+        if NUM_GPUS == 7 {
+            kernels = GPU_NVIDIA_DEVICES.iter().map(|d| {
+                SingleMultiexpKernel::<E>::create(*d, chunk_size as u32)
+            }).filter(|res| res.is_ok()).map(|res| res.unwrap()).collect();
+        } else {
+            for x in 0..NUM_GPUS {
+                println!("Collected device: {:?}", x);
+                let mut d = Vec::new();
+                d = GPU_NVIDIA_DEVICES.iter().collect();
+                kernels.push(SingleMultiexpKernel::<E>::create(*d[x], chunk_size as u32).unwrap())
+            }
+        }
         if kernels.is_empty() { return Err(GPUError {msg: "No working GPUs found!".to_string()} ); }
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
