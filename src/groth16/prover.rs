@@ -213,8 +213,10 @@ where
     let a = {
         let mut fft_kern = gpu_fft_supported::<E>(log_d).ok();
         if fft_kern.is_some() {
+            println!("GPU FFT is supported!");
             info!("GPU FFT is supported!");
         } else {
+            println!("GPU FFT is NOT supported!");
             info!("GPU FFT is NOT supported!");
         }
 
@@ -244,8 +246,10 @@ where
 
     let mut multiexp_kern = gpu_multiexp_supported::<E>(n).ok();
     if multiexp_kern.is_some() {
+        println!("GPU Multiexp is supported!");
         info!("GPU Multiexp is supported!");
     } else {
+        println!("GPU Multiexp is NOT supported!");
         info!("GPU Multiexp is NOT supported!");
     }
 

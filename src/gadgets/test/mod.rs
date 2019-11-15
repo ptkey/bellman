@@ -417,6 +417,7 @@ impl<E: ScalarEngine> ConstraintSystem<E> for TestConstraintSystem<E> {
     }
 }
 
+#[cfg(feature = "constraint-test")]
 #[test]
 fn test_cs() {
     use ff::PrimeField;

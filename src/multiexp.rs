@@ -280,7 +280,7 @@ where
                 n += 1;
             }
         }
-
+        println!("Density map: {:?}", Some(density_map.as_ref().get_query_size()));
         let (bss, skip) = bases.get();
         let result = k
             .multiexp(bss, Arc::new(exps), skip, n)
