@@ -281,12 +281,13 @@ where
             }
         }
         println!("Density map: {:?}", Some(density_map.as_ref().get_query_size()));
-        let (bss, skip) = bases.get();
+        let (bss, skip) = bases.clone().get();
+        println!("Skip: {:?}", skip);
         let result = k
-            .multiexp(bss, Arc::new(exps), skip, n)
-            .expect("GPU Multiexp failed!");
-
-        return Box::new(pool.compute(move || Ok(result)));
+           .multiexp(pool,bss.clone(), Arc::new(exps), skip, n)
+           .expect("GPU Multiexp failed!");
+        println!("GPU: {:?}", result);   
+        //return Box::new(pool.compute(move || Ok(result)));
     }
 
     let c = if exponents.len() < 32 {
@@ -301,8 +302,10 @@ where
 
         assert!(query_size == exponents.len());
     }
-
-    multiexp_inner(pool, bases, density_map, exponents, 0, c, true)
+    let cpu_res = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
+    println!("CPU: {:?}", cpu_res);
+    println!("==========");
+    return Box::new(pool.compute(move || { Ok(cpu_res) }));
 }
 
 #[cfg(feature = "pairing")]

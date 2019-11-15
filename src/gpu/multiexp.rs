@@ -11,6 +11,10 @@ use ocl::{Buffer, Device, MemFlags, ProQue};
 use paired::Engine;
 use std::sync::Arc;
 
+use crate::multiexp::{multiexp as cpu_multiexp, FullDensity};
+use crate::multicore::Worker;
+use futures::Future;
+
 // NOTE: Please read `structs.rs` for an explanation for unsafe transmutes of this code!
 
 const MAX_WINDOW_SIZE: usize = 10;
@@ -280,6 +284,7 @@ where
 
     pub fn multiexp<G>(
         &mut self,
+        pool: &Worker,
         bases: Arc<Vec<G>>,
         exps: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,
         skip: usize,
