@@ -181,6 +181,7 @@ where
     E: Engine,
     C: Circuit<E>,
 {
+    env_logger::init();
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),
         b_input_density: DensityTracker::new(),

@@ -9,11 +9,13 @@ use bellperson::{
 use paired::{bls12_381::Bls12, Engine};
 use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
+
 /// Our own SHA-256d gadget. Input and output are in little-endian bit order.
 fn sha256d<E: Engine, CS: ConstraintSystem<E>>(
     mut cs: CS,
     data: &[Boolean],
 ) -> Result<Vec<Boolean>, SynthesisError> {
+    //env_logger::init();
     // Flip endianness of each input byte
     let input: Vec<_> = data
         .chunks(8)

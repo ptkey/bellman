@@ -5,6 +5,9 @@ use groupy::{CurveAffine, CurveProjective};
 use std::io;
 use std::iter;
 use std::sync::{Arc, Mutex};
+use log::info;
+use log::Level;
+use env_logger;
 
 use super::multicore::Worker;
 use super::SynthesisError;
@@ -286,7 +289,7 @@ where
         let result = k
            .multiexp(pool,bss.clone(), Arc::new(exps), skip, n)
            .expect("GPU Multiexp failed!");
-        println!("GPU: {:?}", result);   
+        info!("GPU: {}",result); 
         //return Box::new(pool.compute(move || Ok(result)));
     }
 
@@ -303,7 +306,7 @@ where
         assert!(query_size == exponents.len());
     }
     let cpu_res = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
-    println!("CPU: {:?}", cpu_res);
+    info!("CPU: {}", cpu_res);
     println!("==========");
     return Box::new(pool.compute(move || { Ok(cpu_res) }));
 }

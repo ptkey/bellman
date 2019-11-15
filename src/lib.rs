@@ -138,6 +138,7 @@
 #[cfg(test)]
 #[macro_use]
 extern crate hex_literal;
+extern crate log;
 
 pub mod domain;
 pub mod gadgets;

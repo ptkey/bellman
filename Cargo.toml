@@ -27,6 +27,7 @@ lazy_static = "1.4.0"
 ocl = { version = "0.19.4", package = "fil-ocl", optional = true }
 itertools = { version = "0.8.0", optional = true }
 rand = "0.7"
+env_logger = "0.7.1"
 
 [dev-dependencies]
 hex-literal = "0.2"
