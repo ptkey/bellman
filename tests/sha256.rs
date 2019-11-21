@@ -15,7 +15,6 @@ fn sha256d<E: Engine, CS: ConstraintSystem<E>>(
     mut cs: CS,
     data: &[Boolean],
 ) -> Result<Vec<Boolean>, SynthesisError> {
-    //env_logger::init();
     // Flip endianness of each input byte
     let input: Vec<_> = data
         .chunks(8)

@@ -135,14 +135,23 @@
 // Catch documentation errors caused by code changes.
 #![deny(intra_doc_link_resolution_failure)]
 
+#[macro_use]
+extern crate lazy_static;
+
 #[cfg(test)]
 #[macro_use]
 extern crate hex_literal;
 extern crate log;
 
+#[cfg(feature = "gpu")]
+extern crate itertools;
+#[cfg(feature = "gpu")]
+extern crate ocl;
+
+mod gpu;
 pub mod domain;
 pub mod gadgets;
-mod gpu;
+
 #[cfg(feature = "groth16")]
 pub mod groth16;
 pub mod multicore;

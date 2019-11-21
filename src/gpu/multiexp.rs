@@ -284,7 +284,7 @@ where
 
     pub fn multiexp<G>(
         &mut self,
-        pool: &Worker,
+        
         bases: Arc<Vec<G>>,
         exps: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,
         skip: usize,
