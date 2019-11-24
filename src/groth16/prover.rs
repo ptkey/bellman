@@ -298,7 +298,7 @@ where
         a_aux_source,
         Arc::new(prover.a_aux_density),
         aux_assignment.clone(),
-        &mut multiexp_kern,
+        &mut None,
     );
 
     let b_input_density = Arc::new(prover.b_input_density);
