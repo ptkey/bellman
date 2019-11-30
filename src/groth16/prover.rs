@@ -254,6 +254,7 @@ where
         info!("GPU Multiexp is NOT supported!");
     }
 
+    println!("Multiexp 1");
     let h = multiexp(
         &worker,
         params.get_h(a.len())?,
@@ -278,6 +279,7 @@ where
             .collect::<Vec<_>>(),
     );
 
+    println!("Multiexp 2");
     let l = multiexp(
         &worker,
         params.get_l(aux_assignment.len())?,
@@ -291,6 +293,7 @@ where
     let (a_inputs_source, a_aux_source) =
         params.get_a(input_assignment.len(), a_aux_density_total)?;
 
+    println!("Multiexp 3");
     let a_inputs = multiexp(
         &worker,
         a_inputs_source,
@@ -298,6 +301,7 @@ where
         input_assignment.clone(),
         &mut multiexp_kern,
     );
+    println!("Multiexp 4");
     let a_aux = multiexp(
         &worker,
         a_aux_source,
@@ -314,6 +318,7 @@ where
     let (b_g1_inputs_source, b_g1_aux_source) =
         params.get_b_g1(b_input_density_total, b_aux_density_total)?;
 
+    println!("Multiexp 5");
     let b_g1_inputs = multiexp(
         &worker,
         b_g1_inputs_source,
@@ -321,6 +326,7 @@ where
         input_assignment.clone(),
         &mut multiexp_kern,
     );
+    println!("Multiexp 6");
     let b_g1_aux = multiexp(
         &worker,
         b_g1_aux_source,
@@ -332,6 +338,7 @@ where
     let (b_g2_inputs_source, b_g2_aux_source) =
         params.get_b_g2(b_input_density_total, b_aux_density_total)?;
 
+    println!("Multiexp 7");
     let b_g2_inputs = multiexp(
         &worker,
         b_g2_inputs_source,
@@ -339,6 +346,7 @@ where
         input_assignment,
         &mut multiexp_kern,
     );
+    println!("Multiexp 8");
     let b_g2_aux = multiexp(
         &worker,
         b_g2_aux_source,

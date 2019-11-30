@@ -77,7 +77,7 @@ impl<G: CurveAffine> Source<G> for (Arc<Vec<G>>, usize) {
             )
             .into());
         }
-
+        //println!("self in skip: {:?}", self.0);
         self.1 += amt;
 
         Ok(())
@@ -226,8 +226,9 @@ where
             Ok(acc)
         })
     };
-
+    //println!("Skip before: {:?}", skip);
     skip += c;
+    //println!("Skip after: {:?}", skip);
 
     if skip >= <G::Engine as ScalarEngine>::Fr::NUM_BITS {
         // There isn't another region.
@@ -285,12 +286,32 @@ where
         }
         println!("Density map: {:?}", Some(density_map.as_ref().get_query_size()));
         let (bss, skip) = bases.clone().get();
+        println!("Bases length: {:?}", bss.len());
+        println!("Exponents length: {:?}", exponents.len());
         println!("Skip: {:?}", skip);
         let result = k
            .multiexp(bss.clone(), Arc::new(exps), skip, n)
            .expect("GPU Multiexp failed!");
         info!("GPU: {}",result); 
-        //return Box::new(pool.compute(move || Ok(result)));
+
+        let c = if exponents.len() < 32 {
+            3u32
+        } else {
+            (f64::from(exponents.len() as u32)).ln().ceil() as u32
+        };
+        println!("Exponents legnth : {:?}", (f64::from(exponents.len() as u32)).ln());
+        println!("N computed from c: {:?}", (1 << c) - 1);
+        println!("Num Bits: {:?}", <G::Engine as ScalarEngine>::Fr::NUM_BITS);
+        let cpu_res = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
+        info!("CPU: {}", cpu_res);
+        if result == cpu_res {
+          println!("TRUE");
+        } else {
+          println!("FALSE");
+        }
+        println!("==========");
+
+        return Box::new(pool.compute(move || Ok(result)));
     }
 
     let c = if exponents.len() < 32 {
@@ -306,7 +327,7 @@ where
         assert!(query_size == exponents.len());
     }
     let cpu_res = multiexp_inner(pool, bases, density_map, exponents, 0, c, true).wait().unwrap();
-    info!("CPU: {}", cpu_res);
+    info!("CPU2: {}", cpu_res);
     println!("==========");
     return Box::new(pool.compute(move || { Ok(cpu_res) }));
 }

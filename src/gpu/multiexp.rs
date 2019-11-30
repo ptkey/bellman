@@ -297,12 +297,16 @@ where
             return Ok(<G as CurveAffine>::Projective::zero());
         }
 
+        println!("GPU METHOD SKIP: {:?}", skip);
+        println!("n: {:?}", n);
         let num_devices = self.kernels.len();
         let chunk_size = ((n as f64) / (num_devices as f64)).ceil() as usize;
         let device_chunk_size = self.chunk_size;
         // Bases are skipped by `self.1` elements, when converted from (Arc<Vec<G>>, usize) to Source
         // https://github.com/zkcrypto/bellman/blob/10c5010fd9c2ca69442dc9775ea271e286e776d8/src/multiexp.rs#L38
+        println!("bases length before: {:?}", bases.len());
         let bases = &bases[skip..(skip + n)];
+        println!("bases length after: {:?}", bases.len());
 
         let exps = &exps[..n];
 
