@@ -10,10 +10,10 @@ use paired::Engine;
 
 use super::{ParameterSource, Proof};
 use crate::domain::{gpu_fft_supported, EvaluationDomain, Scalar};
+use crate::gpu;
 use crate::multicore::Worker;
 use crate::multiexp::{gpu_multiexp_supported, multiexp, DensityTracker, FullDensity};
 use crate::{Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
-use crate::gpu;
 
 fn eval<E: Engine>(
     lc: &LinearCombination<E>,
