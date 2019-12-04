@@ -65,13 +65,20 @@ pub fn get_core_count(d: Device) -> GPUResult<usize> {
 
 use std::fs::{remove_file, File};
 use std::path::Path;
+use std::sync::Mutex;
 pub const FILE_NAME: &str = "/tmp/bellman_gpu.lock";
+lazy_static::lazy_static! {
+    static ref IS_ME : Mutex<bool> = Mutex::new(false);
+}
 pub fn gpu_acquire() {
+    *IS_ME.lock().unwrap() = true;
     File::create(FILE_NAME).unwrap();
 }
 pub fn gpu_release() {
+    *IS_ME.lock().unwrap() = false;
     remove_file(FILE_NAME).unwrap();
 }
 pub fn gpu_is_available() -> bool {
-    !Path::new(FILE_NAME).exists()
+    // Either taken by me or not taken by somebody else
+    *IS_ME.lock().unwrap() || !Path::new(FILE_NAME).exists()
 }
