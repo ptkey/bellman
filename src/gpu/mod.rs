@@ -45,8 +45,8 @@ pub fn lock() -> File {
 
     #[cfg(feature = "gpu")]
     {
-        use std::os::unix::io::AsRawFd;
         use nix::fcntl::{flock, FlockArg};
+        use std::os::unix::io::AsRawFd;
         let fd = file.as_raw_fd();
         flock(fd, FlockArg::LockExclusive).unwrap();
     }
