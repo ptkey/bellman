@@ -155,6 +155,19 @@ use std::io;
 use std::marker::PhantomData;
 use std::ops::{Add, Sub};
 
+#[cfg(feature = "gpu")]
+pub fn gpu_acquire() {
+    gpu::gpu_acquire();
+}
+#[cfg(feature = "gpu")]
+pub fn gpu_release() {
+    gpu::gpu_release();
+}
+#[cfg(feature = "gpu")]
+pub fn gpu_is_available() -> bool {
+    gpu::gpu_is_available()
+}
+
 /// Computations are expressed in terms of arithmetic circuits, in particular
 /// rank-1 quadratic constraint systems. The `Circuit` trait represents a
 /// circuit that can be synthesized. The `synthesize` method is called during

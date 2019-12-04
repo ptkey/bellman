@@ -1,6 +1,6 @@
 use crate::gpu::{
     error::{GPUError, GPUResult},
-    sources, structs, GPU_NVIDIA_DEVICES,
+    sources, structs, utils, GPU_NVIDIA_DEVICES,
 };
 use ff::Field;
 use log::info;
@@ -85,7 +85,13 @@ where
         deg: u32,
         max_deg: u32,
         in_src: bool,
-    ) -> ocl::Result<()> {
+    ) -> GPUResult<()> {
+        if !utils::gpu_is_available() {
+            return Err(GPUError {
+                msg: "GPU is forcefully taken by another process!".to_string(),
+            });
+        }
+
         let n = 1u32 << lgn;
         let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);
         let kernel = self

@@ -62,3 +62,16 @@ pub fn get_core_count(d: Device) -> GPUResult<usize> {
         }),
     }
 }
+
+use std::fs::{remove_file, File};
+use std::path::Path;
+pub const FILE_NAME: &str = "/tmp/bellman_gpu.lock";
+pub fn gpu_acquire() {
+    File::create(FILE_NAME).unwrap();
+}
+pub fn gpu_release() {
+    remove_file(FILE_NAME).unwrap();
+}
+pub fn gpu_is_available() -> bool {
+    !Path::new(FILE_NAME).exists()
+}

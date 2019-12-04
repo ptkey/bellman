@@ -141,6 +141,12 @@ where
     where
         G: CurveAffine,
     {
+        if !utils::gpu_is_available() {
+            return Err(GPUError {
+                msg: "GPU is forcefully taken by another process!".to_string(),
+            });
+        }
+
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let num_windows = ((exp_bits as f64) / (self.window_size as f64)).ceil() as usize;
 
