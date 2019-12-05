@@ -79,7 +79,7 @@ where
         //     });
 
         let context = Context::builder().platform(platform.unwrap()).build().unwrap();
-        let p = Program::builder().src(src).devices(d).build(&context).unwrap();
+        let p = Program::builder().cmplr_opt("-cl-opt-disable").src(src).devices(d).build(&context).unwrap();
         let q = Queue::new(&context, d, Some(ocl::core::QUEUE_PROFILING_ENABLE))?;
 
         //let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
