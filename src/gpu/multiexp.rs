@@ -7,7 +7,7 @@ use crossbeam::thread;
 use ff::{PrimeField, ScalarEngine};
 use groupy::{CurveAffine, CurveProjective};
 use log::info;
-use ocl::{Buffer, Device, MemFlags, ProQue};
+use ocl::{Result as OclResult, Buffer, Device, MemFlags, ProQue, Platform, Context, Kernel, Program, Queue};
 use paired::Engine;
 use std::sync::Arc;
 
@@ -16,12 +16,16 @@ use std::sync::Arc;
 const MAX_WINDOW_SIZE: usize = 10;
 const LOCAL_WORK_SIZE: usize = 256;
 
+
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E>
 where
     E: Engine,
 {
-    proque: ProQue,
+    program: Program,
+    queue: Queue,
+    device: Device,
+    //proque: ProQue,
 
     g1_base_buffer: Buffer<structs::CurveAffineStruct<E::G1Affine>>,
     g1_bucket_buffer: Buffer<structs::CurveProjectiveStruct<E::G1>>,
@@ -66,7 +70,19 @@ where
 {
     pub fn create(d: Device, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
         let src = sources::kernel::<E>();
-        let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
+
+        let platform = Platform::first();
+        // let platform = Platform::list().into_iter().find(|&p|
+        //     match p.name() {
+        //         Ok(p) => p == utils::GPU_NVIDIA_PLATFORM_NAME,
+        //         Err(_) => false
+        //     });
+
+        let context = Context::builder().platform(platform.unwrap()).build().unwrap();
+        let p = Program::builder().src(src).devices(d).build(&context).unwrap();
+        let q = Queue::new(&context, d, Some(ocl::core::QUEUE_PROFILING_ENABLE))?;
+
+        //let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
 
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let core_count = utils::get_core_count(d)?;
@@ -81,45 +97,48 @@ where
         // Each thread will use `num_groups` * `num_windows` * `bucket_len` buckets.
 
         let g1basebuff = Buffer::builder()
-            .queue(pq.queue().clone())
+            .queue(q.clone())
             .flags(MemFlags::new().read_write())
             .len(n)
             .build()?;
         let g1buckbuff = Buffer::builder()
-            .queue(pq.queue().clone())
+            .queue(q.clone())
             .flags(MemFlags::new().read_write())
             .len(bucket_len * num_windows * num_groups)
             .build()?;
         let g1resbuff = Buffer::builder()
-            .queue(pq.queue().clone())
+            .queue(q.clone())
             .flags(MemFlags::new().read_write())
             .len(num_windows * num_groups)
             .build()?;
 
         let g2basebuff = Buffer::builder()
-            .queue(pq.queue().clone())
+            .queue(q.clone())
             .flags(MemFlags::new().read_write())
             .len(n)
             .build()?;
         let g2buckbuff = Buffer::builder()
-            .queue(pq.queue().clone())
+            .queue(q.clone())
             .flags(MemFlags::new().read_write())
             .len(bucket_len * num_windows * num_groups)
             .build()?;
         let g2resbuff = Buffer::builder()
-            .queue(pq.queue().clone())
+            .queue(q.clone())
             .flags(MemFlags::new().read_write())
             .len(num_windows * num_groups)
             .build()?;
 
         let expbuff = Buffer::builder()
-            .queue(pq.queue().clone())
+            .queue(q.clone())
             .flags(MemFlags::new().read_write())
             .len(n)
             .build()?;
 
         Ok(SingleMultiexpKernel {
-            proque: pq,
+            //proque: pq,
+            program: p,
+            queue: q,
+            device: d,
             g1_base_buffer: g1basebuff,
             g1_bucket_buffer: g1buckbuff,
             g1_result_buffer: g1resbuff,
@@ -164,9 +183,12 @@ where
                     as *const [structs::CurveAffineStruct<<E as Engine>::G1Affine>])
             };
             self.g1_base_buffer.write(tbases).enq()?;
-            let kernel = self
-                .proque
-                .kernel_builder("G1_bellman_multiexp")
+            let kernel = Kernel::builder() //self
+                //.proque
+                .program(&self.program)
+                .queue(self.queue.clone())
+                .name("G1_bellman_multiexp")
+                //.kernel_builder("G1_bellman_multiexp")
                 .global_work_size([gws])
                 .arg(&self.g1_base_buffer)
                 .arg(&self.g1_bucket_buffer)
@@ -191,9 +213,12 @@ where
                     as *const [structs::CurveAffineStruct<<E as Engine>::G2Affine>])
             };
             self.g2_base_buffer.write(tbases).enq()?;
-            let kernel = self
-                .proque
-                .kernel_builder("G2_bellman_multiexp")
+            let kernel = Kernel::builder()//self
+                //.proque
+                .program(&self.program)
+                .queue(self.queue.clone())
+                .name("G2_bellman_multiexp")
+                //.kernel_builder("G2_bellman_multiexp")
                 .global_work_size([gws])
                 .arg(&self.g2_base_buffer)
                 .arg(&self.g2_bucket_buffer)
@@ -267,7 +292,7 @@ where
             info!(
                 "Multiexp: Device {}: {} (Window-size: {}, Num-groups: {})",
                 i,
-                k.proque.device().name()?,
+                k.device.name()?,
                 k.window_size,
                 k.num_groups
             );
