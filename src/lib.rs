@@ -319,13 +319,10 @@ pub enum SynthesisError {
     MalformedVerifyingKey,
     /// During CRS generation, we observed an unconstrained auxiliary variable
     UnconstrainedVariable,
-
     /// During GPU multiexp/fft, some GPU related error happened
-    #[cfg(feature = "gpu")]
     GPUError(gpu::GPUError),
 }
 
-#[cfg(feature = "gpu")]
 impl From<gpu::GPUError> for SynthesisError {
     fn from(e: gpu::GPUError) -> SynthesisError {
         SynthesisError::GPUError(e)
@@ -351,8 +348,6 @@ impl Error for SynthesisError {
             SynthesisError::IoError(_) => "encountered an I/O error",
             SynthesisError::MalformedVerifyingKey => "malformed verifying key",
             SynthesisError::UnconstrainedVariable => "auxiliary variable was unconstrained",
-
-            #[cfg(feature = "gpu")]
             SynthesisError::GPUError(_) => "encountered a GPU error",
         }
     }
