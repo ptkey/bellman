@@ -282,11 +282,12 @@ where
         }
 
         let (bss, skip) = bases.get();
-        let result = k
-            .multiexp(bss, Arc::new(exps), skip, n)
-            .expect("GPU Multiexp failed!");
+        let result = k.multiexp(bss, Arc::new(exps), skip, n);
 
-        return Box::new(pool.compute(move || Ok(result)));
+        return Box::new(pool.compute(move || match result {
+            Ok(p) => Ok(p),
+            Err(e) => Err(SynthesisError::from(e))
+        }));
     }
 
     let c = if exponents.len() < 32 {
