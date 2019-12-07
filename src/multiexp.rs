@@ -286,7 +286,7 @@ where
 
         return Box::new(pool.compute(move || match result {
             Ok(p) => Ok(p),
-            Err(e) => Err(SynthesisError::from(e))
+            Err(e) => Err(SynthesisError::from(e)),
         }));
     }
 
@@ -400,8 +400,8 @@ where
                 &mut kern,
             )
             .wait()?;
-            let cpu_g1 = multiexp(&pool, (bases_g1, 0), FullDensity, exps.clone(), &mut None)
-                .wait()?;
+            let cpu_g1 =
+                multiexp(&pool, (bases_g1, 0), FullDensity, exps.clone(), &mut None).wait()?;
             let gpu_g2 = multiexp(
                 &pool,
                 (bases_g2.clone(), 0),
@@ -410,8 +410,7 @@ where
                 &mut kern,
             )
             .wait()?;
-            let cpu_g2 = multiexp(&pool, (bases_g2, 0), FullDensity, exps, &mut None)
-                .wait()?;
+            let cpu_g2 = multiexp(&pool, (bases_g2, 0), FullDensity, exps, &mut None).wait()?;
             let res = cpu_g1 == gpu_g1 && cpu_g2 == gpu_g2;
             *supported = Some(res);
             res

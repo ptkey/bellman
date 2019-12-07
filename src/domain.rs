@@ -84,12 +84,20 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         })
     }
 
-    pub fn fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E>>) -> gpu::GPUResult<()> {
+    pub fn fft(
+        &mut self,
+        worker: &Worker,
+        kern: &mut Option<gpu::FFTKernel<E>>,
+    ) -> gpu::GPUResult<()> {
         best_fft(kern, &mut self.coeffs, worker, &self.omega, self.exp)?;
         Ok(())
     }
 
-    pub fn ifft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E>>) -> gpu::GPUResult<()> {
+    pub fn ifft(
+        &mut self,
+        worker: &Worker,
+        kern: &mut Option<gpu::FFTKernel<E>>,
+    ) -> gpu::GPUResult<()> {
         best_fft(kern, &mut self.coeffs, worker, &self.omegainv, self.exp)?;
 
         if let Some(ref mut k) = kern {
@@ -124,13 +132,21 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         });
     }
 
-    pub fn coset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E>>) -> gpu::GPUResult<()> {
+    pub fn coset_fft(
+        &mut self,
+        worker: &Worker,
+        kern: &mut Option<gpu::FFTKernel<E>>,
+    ) -> gpu::GPUResult<()> {
         self.distribute_powers(worker, E::Fr::multiplicative_generator());
         self.fft(worker, kern)?;
         Ok(())
     }
 
-    pub fn icoset_fft(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E>>) -> gpu::GPUResult<()> {
+    pub fn icoset_fft(
+        &mut self,
+        worker: &Worker,
+        kern: &mut Option<gpu::FFTKernel<E>>,
+    ) -> gpu::GPUResult<()> {
         let geninv = self.geninv;
         self.ifft(worker, kern)?;
         self.distribute_powers(worker, geninv);
@@ -149,7 +165,11 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
     /// The target polynomial is the zero polynomial in our
     /// evaluation domain, so we must perform division over
     /// a coset.
-    pub fn divide_by_z_on_coset(&mut self, worker: &Worker, kern: &mut Option<gpu::FFTKernel<E>>) -> gpu::GPUResult<()> {
+    pub fn divide_by_z_on_coset(
+        &mut self,
+        worker: &Worker,
+        kern: &mut Option<gpu::FFTKernel<E>>,
+    ) -> gpu::GPUResult<()> {
         let i = self
             .z(&E::Fr::multiplicative_generator())
             .inverse()
