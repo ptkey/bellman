@@ -279,11 +279,12 @@ where
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
             info!(
-                "Multiexp: Device {}: {} (Window-size: {}, Num-groups: {})",
+                "Multiexp: Device {}: {} (Window-size: {}, Num-groups: {}, Chunk-size: {})",
                 i,
                 k.proque.device().name()?,
                 k.window_size,
-                k.num_groups
+                k.num_groups,
+                k.n
             );
         }
         return Ok(MultiexpKernel::<E> { kernels });
