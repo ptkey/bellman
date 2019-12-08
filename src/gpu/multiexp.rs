@@ -33,6 +33,7 @@ where
 
     exp_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
 
+    n: usize,
     num_groups: usize,
     window_size: usize,
 }
@@ -127,6 +128,7 @@ where
             g2_bucket_buffer: g2buckbuff,
             g2_result_buffer: g2resbuff,
             exp_buffer: expbuff,
+            n: n as usize,
             num_groups: num_groups,
             window_size: window_size,
         })
@@ -243,7 +245,6 @@ where
     E: Engine,
 {
     kernels: Vec<SingleMultiexpKernel<E>>,
-    chunk_size: usize,
 }
 
 impl<E> MultiexpKernel<E>
@@ -273,8 +274,7 @@ where
             );
         }
         return Ok(MultiexpKernel::<E> {
-            kernels,
-            chunk_size,
+            kernels
         });
     }
 
@@ -294,7 +294,6 @@ where
 
         let num_devices = self.kernels.len();
         let chunk_size = ((n as f64) / (num_devices as f64)).ceil() as usize;
-        let device_chunk_size = self.chunk_size;
         // Bases are skipped by `self.1` elements, when converted from (Arc<Vec<G>>, usize) to Source
         // https://github.com/zkcrypto/bellman/blob/10c5010fd9c2ca69442dc9775ea271e286e776d8/src/multiexp.rs#L38
         let bases = &bases[skip..(skip + n)];
@@ -313,8 +312,8 @@ where
                     move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
                         let mut acc = <G as CurveAffine>::Projective::zero();
                         for (bases, exps) in bases
-                            .chunks(device_chunk_size)
-                            .zip(exps.chunks(device_chunk_size))
+                            .chunks(kern.n)
+                            .zip(exps.chunks(kern.n))
                         {
                             let result = kern.multiexp(bases, exps, bases.len())?;
                             acc.add_assign(&result);
