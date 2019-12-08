@@ -34,9 +34,8 @@ where
 
     exp_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
 
+    core_count: usize,
     n: usize,
-    num_groups: usize,
-    window_size: usize,
 }
 
 fn calc_num_groups(core_count: usize, num_windows: usize) -> usize {
@@ -80,15 +79,10 @@ where
         let src = sources::kernel::<E>();
         let pq = ProQue::builder().device(d).src(src).dims(1).build()?;
 
-        let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let core_count = utils::get_core_count(d)?;
         let mem = utils::get_memory(d)?;
-        let n = calc_chunk_size::<E>(mem, core_count);
-
-        let window_size = calc_window_size(n as usize, exp_bits, core_count);
-        let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
-        let bucket_len = 1 << window_size;
-        let num_groups = calc_num_groups(core_count, num_windows);
+        let max_n = calc_chunk_size::<E>(mem, core_count);
+        let max_bucket_len = 1 << MAX_WINDOW_SIZE;
 
         // Each group will have `num_windows` threads and as there are `num_groups` groups, there will
         // be `num_groups` * `num_windows` threads in total.
@@ -97,39 +91,39 @@ where
         let g1basebuff = Buffer::builder()
             .queue(pq.queue().clone())
             .flags(MemFlags::new().read_write())
-            .len(n)
+            .len(max_n)
             .build()?;
         let g1buckbuff = Buffer::builder()
             .queue(pq.queue().clone())
             .flags(MemFlags::new().read_write())
-            .len(bucket_len * num_windows * num_groups)
+            .len(2 * core_count * max_bucket_len)
             .build()?;
         let g1resbuff = Buffer::builder()
             .queue(pq.queue().clone())
             .flags(MemFlags::new().read_write())
-            .len(num_windows * num_groups)
+            .len(2 * core_count)
             .build()?;
 
         let g2basebuff = Buffer::builder()
             .queue(pq.queue().clone())
             .flags(MemFlags::new().read_write())
-            .len(n)
+            .len(max_n)
             .build()?;
         let g2buckbuff = Buffer::builder()
             .queue(pq.queue().clone())
             .flags(MemFlags::new().read_write())
-            .len(bucket_len * num_windows * num_groups)
+            .len(2 * core_count * max_bucket_len)
             .build()?;
         let g2resbuff = Buffer::builder()
             .queue(pq.queue().clone())
             .flags(MemFlags::new().read_write())
-            .len(num_windows * num_groups)
+            .len(2 * core_count)
             .build()?;
 
         let expbuff = Buffer::builder()
             .queue(pq.queue().clone())
             .flags(MemFlags::new().read_write())
-            .len(n)
+            .len(max_n)
             .build()?;
 
         Ok(SingleMultiexpKernel {
@@ -141,9 +135,8 @@ where
             g2_bucket_buffer: g2buckbuff,
             g2_result_buffer: g2resbuff,
             exp_buffer: expbuff,
-            n: n as usize,
-            num_groups: num_groups,
-            window_size: window_size,
+            core_count: core_count,
+            n: max_n,
         })
     }
 
@@ -157,9 +150,11 @@ where
         G: CurveAffine,
     {
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
-        let num_windows = ((exp_bits as f64) / (self.window_size as f64)).ceil() as usize;
+        let window_size = calc_window_size(n as usize, exp_bits, self.core_count);
+        let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
+        let num_groups = calc_num_groups(self.core_count, num_windows);
 
-        let mut res = vec![<G as CurveAffine>::Projective::zero(); self.num_groups * num_windows];
+        let mut res = vec![<G as CurveAffine>::Projective::zero(); num_groups * num_windows];
         let texps = unsafe {
             std::mem::transmute::<
                 &[<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr],
@@ -169,7 +164,7 @@ where
         self.exp_buffer.write(texps).enq()?;
 
         // Make global work size divisible by `LOCAL_WORK_SIZE`
-        let mut gws = num_windows * self.num_groups;
+        let mut gws = num_windows * num_groups;
         gws += (LOCAL_WORK_SIZE - (gws % LOCAL_WORK_SIZE)) % LOCAL_WORK_SIZE;
 
         let sz = std::mem::size_of::<G>(); // Trick, used for dispatching between G1 and G2!
@@ -188,9 +183,9 @@ where
                 .arg(&self.g1_result_buffer)
                 .arg(&self.exp_buffer)
                 .arg(n as u32)
-                .arg(self.num_groups as u32)
+                .arg(num_groups as u32)
                 .arg(num_windows as u32)
-                .arg(self.window_size as u32)
+                .arg(window_size as u32)
                 .build()?;
             unsafe {
                 kernel.enq()?;
@@ -215,9 +210,9 @@ where
                 .arg(&self.g2_result_buffer)
                 .arg(&self.exp_buffer)
                 .arg(n as u32)
-                .arg(self.num_groups as u32)
+                .arg(num_groups as u32)
                 .arg(num_windows as u32)
-                .arg(self.window_size as u32)
+                .arg(window_size as u32)
                 .build()?;
             unsafe {
                 kernel.enq()?;
@@ -238,11 +233,11 @@ where
         let mut acc = <G as CurveAffine>::Projective::zero();
         let mut bits = 0;
         for i in 0..num_windows {
-            let w = std::cmp::min(self.window_size, exp_bits - bits);
+            let w = std::cmp::min(window_size, exp_bits - bits);
             for _ in 0..w {
                 acc.double();
             }
-            for g in 0..self.num_groups {
+            for g in 0..num_groups {
                 acc.add_assign(&res[g * num_windows + i]);
             }
             bits += w; // Process the next window
@@ -279,11 +274,9 @@ where
         info!("Multiexp: {} working device(s) selected.", kernels.len());
         for (i, k) in kernels.iter().enumerate() {
             info!(
-                "Multiexp: Device {}: {} (Window-size: {}, Num-groups: {}, Chunk-size: {})",
+                "Multiexp: Device {}: {} (Chunk-size: {})",
                 i,
                 k.proque.device().name()?,
-                k.window_size,
-                k.num_groups,
                 k.n
             );
         }
