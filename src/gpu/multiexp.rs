@@ -18,7 +18,15 @@ use std::sync::Arc;
 
 const MAX_WINDOW_SIZE: usize = 10;
 const LOCAL_WORK_SIZE: usize = 256;
-const SPEEDUP: f64 = 3.1f64; // GeForce RTX 2080Ti over AMD Ryzen 7
+
+pub fn get_cpu_utilization() -> f64 {
+    use std::env;
+    env::var("BELLMAN_CPU_UTILIZATION")
+        .and_then(|v| Ok(v.parse().expect("Invalid BELLMAN_CPU_UTILIZATION!")))
+        .unwrap_or(0f64)
+        .max(0f64)
+        .min(1f64)
+}
 
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E>
@@ -301,7 +309,7 @@ where
         let bases = &bases[skip..(skip + n)];
         let exps = &exps[..n];
 
-        let cpu_n = ((n as f64) / ((num_devices as f64) * SPEEDUP + 1f64)) as usize;
+        let cpu_n = ((n as f64) * get_cpu_utilization()) as usize;
         let n = n - cpu_n;
         let (cpu_bases, bases) = bases.split_at(cpu_n);
         let (cpu_exps, exps) = exps.split_at(cpu_n);
