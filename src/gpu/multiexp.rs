@@ -3,8 +3,11 @@ use super::sources;
 use super::structs;
 use super::utils;
 use super::GPU_NVIDIA_DEVICES;
+use crate::multicore::Worker;
+use crate::multiexp::{multiexp as cpu_multiexp, FullDensity};
 use crossbeam::thread;
 use ff::{PrimeField, ScalarEngine};
+use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
 use log::info;
 use ocl::{Buffer, Device, MemFlags, ProQue};
@@ -15,6 +18,7 @@ use std::sync::Arc;
 
 const MAX_WINDOW_SIZE: usize = 10;
 const LOCAL_WORK_SIZE: usize = 256;
+const SPEEDUP: f64 = 3.1f64; // GeForce RTX 2080Ti over AMD Ryzen 7
 
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E>
@@ -280,6 +284,7 @@ where
 
     pub fn multiexp<G>(
         &mut self,
+        pool: &Worker,
         bases: Arc<Vec<G>>,
         exps: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::Repr>>,
         skip: usize,
@@ -287,46 +292,62 @@ where
     ) -> GPUResult<<G as CurveAffine>::Projective>
     where
         G: CurveAffine,
+        <G as groupy::CurveAffine>::Engine: paired::Engine,
     {
-        if n == 0 {
-            return Ok(<G as CurveAffine>::Projective::zero());
-        }
-
         let num_devices = self.kernels.len();
-        let chunk_size = ((n as f64) / (num_devices as f64)).ceil() as usize;
         let device_chunk_size = self.chunk_size;
         // Bases are skipped by `self.1` elements, when converted from (Arc<Vec<G>>, usize) to Source
         // https://github.com/zkcrypto/bellman/blob/10c5010fd9c2ca69442dc9775ea271e286e776d8/src/multiexp.rs#L38
         let bases = &bases[skip..(skip + n)];
-
         let exps = &exps[..n];
+
+        let cpu_n = ((n as f64) / ((num_devices as f64) * SPEEDUP + 1f64)) as usize;
+        let n = n - cpu_n;
+        let (cpu_bases, bases) = bases.split_at(cpu_n);
+        let (cpu_exps, exps) = exps.split_at(cpu_n);
+
+        let chunk_size = ((n as f64) / (num_devices as f64)).ceil() as usize;
 
         match thread::scope(|s| -> Result<<G as CurveAffine>::Projective, GPUError> {
             let mut acc = <G as CurveAffine>::Projective::zero();
             let mut threads = Vec::new();
-            for ((bases, exps), kern) in bases
-                .chunks(chunk_size)
-                .zip(exps.chunks(chunk_size))
-                .zip(self.kernels.iter_mut())
-            {
-                threads.push(s.spawn(
-                    move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
-                        let mut acc = <G as CurveAffine>::Projective::zero();
-                        for (bases, exps) in bases
-                            .chunks(device_chunk_size)
-                            .zip(exps.chunks(device_chunk_size))
-                        {
-                            let result = kern.multiexp(bases, exps, bases.len())?;
-                            acc.add_assign(&result);
-                        }
-                        Ok(acc)
-                    },
-                ));
+            if n > 0 {
+                for ((bases, exps), kern) in bases
+                    .chunks(chunk_size)
+                    .zip(exps.chunks(chunk_size))
+                    .zip(self.kernels.iter_mut())
+                {
+                    threads.push(s.spawn(
+                        move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
+                            let mut acc = <G as CurveAffine>::Projective::zero();
+                            for (bases, exps) in bases
+                                .chunks(device_chunk_size)
+                                .zip(exps.chunks(device_chunk_size))
+                            {
+                                let result = kern.multiexp(bases, exps, bases.len())?;
+                                acc.add_assign(&result);
+                            }
+                            Ok(acc)
+                        },
+                    ));
+                }
             }
+
+            let cpu_acc = cpu_multiexp(
+                &pool,
+                (Arc::new(cpu_bases.to_vec()), 0),
+                FullDensity,
+                Arc::new(cpu_exps.to_vec()),
+                &mut None,
+            );
+
             for t in threads {
                 let result = t.join()?;
                 acc.add_assign(&result?);
             }
+
+            acc.add_assign(&cpu_acc.wait().unwrap());
+
             Ok(acc)
         }) {
             Ok(res) => res,

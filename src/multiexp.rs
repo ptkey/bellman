@@ -283,7 +283,7 @@ where
 
         let (bss, skip) = bases.get();
         let result = k
-            .multiexp(bss, Arc::new(exps), skip, n)
+            .multiexp(pool, bss, Arc::new(exps), skip, n)
             .expect("GPU Multiexp failed!");
 
         return Box::new(pool.compute(move || Ok(result)));
