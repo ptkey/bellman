@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 const MAX_WINDOW_SIZE: usize = 10;
 const LOCAL_WORK_SIZE: usize = 256;
+const MEMORY_PADDING: usize = 1 * 1024 * 1024 * 1024; // Consider 1GB of free memory for the GPU
 
 // Multiexp kernel for a single GPU
 pub struct SingleMultiexpKernel<E>
@@ -61,16 +62,28 @@ fn calc_window_size(n: usize, exp_bits: usize, core_count: usize) -> usize {
     return MAX_WINDOW_SIZE;
 }
 
+fn calc_chunk_size<E>(mem: u64, core_count: usize) -> usize
+where
+    E: Engine,
+{
+    let aff_size = std::mem::size_of::<E::G1Affine>() + std::mem::size_of::<E::G2Affine>();
+    let proj_size = std::mem::size_of::<E::G1>() + std::mem::size_of::<E::G2>();
+    ((mem as usize) - MEMORY_PADDING - (2 * core_count * (1 << MAX_WINDOW_SIZE + 1) * proj_size))
+        / aff_size
+}
+
 impl<E> SingleMultiexpKernel<E>
 where
     E: Engine,
 {
-    pub fn create(d: Device, n: u32) -> GPUResult<SingleMultiexpKernel<E>> {
+    pub fn create(d: Device) -> GPUResult<SingleMultiexpKernel<E>> {
         let src = sources::kernel::<E>();
-        let pq = ProQue::builder().device(d).src(src).dims(n).build()?;
+        let pq = ProQue::builder().device(d).src(src).dims(1).build()?;
 
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let core_count = utils::get_core_count(d)?;
+        let mem = utils::get_memory(d)?;
+        let n = calc_chunk_size::<E>(mem, core_count);
 
         let window_size = calc_window_size(n as usize, exp_bits, core_count);
         let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
@@ -251,10 +264,10 @@ impl<E> MultiexpKernel<E>
 where
     E: Engine,
 {
-    pub fn create(chunk_size: usize) -> GPUResult<MultiexpKernel<E>> {
+    pub fn create() -> GPUResult<MultiexpKernel<E>> {
         let kernels: Vec<_> = GPU_NVIDIA_DEVICES
             .iter()
-            .map(|d| SingleMultiexpKernel::<E>::create(*d, chunk_size as u32))
+            .map(|d| SingleMultiexpKernel::<E>::create(*d))
             .filter(|res| res.is_ok())
             .map(|res| res.unwrap())
             .collect();
@@ -273,9 +286,7 @@ where
                 k.num_groups
             );
         }
-        return Ok(MultiexpKernel::<E> {
-            kernels
-        });
+        return Ok(MultiexpKernel::<E> { kernels });
     }
 
     pub fn multiexp<G>(
@@ -311,10 +322,7 @@ where
                 threads.push(s.spawn(
                     move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
                         let mut acc = <G as CurveAffine>::Projective::zero();
-                        for (bases, exps) in bases
-                            .chunks(kern.n)
-                            .zip(exps.chunks(kern.n))
-                        {
+                        for (bases, exps) in bases.chunks(kern.n).zip(exps.chunks(kern.n)) {
                             let result = kern.multiexp(bases, exps, bases.len())?;
                             acc.add_assign(&result);
                         }
