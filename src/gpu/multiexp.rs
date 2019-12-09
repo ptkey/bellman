@@ -274,7 +274,11 @@ where
                 msg: "No working GPUs found!".to_string(),
             });
         }
-        info!("Multiexp: {} working device(s) selected.", kernels.len());
+        info!(
+            "Multiexp: {} working device(s) selected. (CPU utilization: {})",
+            kernels.len(),
+            get_cpu_utilization()
+        );
         for (i, k) in kernels.iter().enumerate() {
             info!(
                 "Multiexp: Device {}: {} (Window-size: {}, Num-groups: {})",
