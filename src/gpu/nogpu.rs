@@ -42,7 +42,7 @@ impl<E> MultiexpKernel<E>
 where
     E: ScalarEngine,
 {
-    pub fn create(_: usize) -> GPUResult<MultiexpKernel<E>> {
+    pub fn create() -> GPUResult<MultiexpKernel<E>> {
         return Err(GPUError {
             msg: "GPU accelerator is not enabled!".to_string(),
         });
