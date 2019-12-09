@@ -337,10 +337,7 @@ where
                     threads.push(s.spawn(
                         move |_| -> Result<<G as CurveAffine>::Projective, GPUError> {
                             let mut acc = <G as CurveAffine>::Projective::zero();
-                            for (bases, exps) in bases
-                                .chunks(kern.n)
-                                .zip(exps.chunks(kern.n))
-                            {
+                            for (bases, exps) in bases.chunks(kern.n).zip(exps.chunks(kern.n)) {
                                 let result = kern.multiexp(bases, exps, bases.len())?;
                                 acc.add_assign(&result);
                             }
