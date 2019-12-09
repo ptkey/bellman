@@ -355,16 +355,14 @@ lazy_static::lazy_static! {
 }
 
 use std::env;
-pub fn gpu_multiexp_supported<E>(n: usize) -> Result<gpu::MultiexpKernel<E>, SynthesisError>
+pub fn gpu_multiexp_supported<E>() -> Result<gpu::MultiexpKernel<E>, SynthesisError>
 where
     E: paired::Engine,
 {
     const TEST_SIZE: u32 = 1024;
-    const MAX_CHUNK_SIZE: usize = 8388608;
-    let chunk_size = std::cmp::min(MAX_CHUNK_SIZE, n);
     let pool = Worker::new();
     let rng = &mut rand::thread_rng();
-    let mut kern = Some(gpu::MultiexpKernel::<E>::create(chunk_size)?);
+    let mut kern = Some(gpu::MultiexpKernel::<E>::create()?);
 
     // Checking the correctness of GPU results can be time consuming. User can disable this
     // feature using BELLMAN_GPU_NO_CHECK flag.
@@ -434,7 +432,7 @@ pub fn gpu_multiexp_consistency() {
     const CHUNK_SIZE: usize = 1048576;
     const MAX_LOG_D: usize = 20;
     const START_LOG_D: usize = 10;
-    let mut kern = gpu::MultiexpKernel::<Bls12>::create(CHUNK_SIZE).ok();
+    let mut kern = gpu::MultiexpKernel::<Bls12>::create().ok();
     if kern.is_none() {
         panic!("Cannot initialize kernel!");
     }
