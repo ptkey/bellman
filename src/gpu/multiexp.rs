@@ -66,9 +66,10 @@ where
     E: Engine,
 {
     let aff_size = std::mem::size_of::<E::G1Affine>() + std::mem::size_of::<E::G2Affine>();
+    let exp_size = std::mem::size_of::<E::Fr>();
     let proj_size = std::mem::size_of::<E::G1>() + std::mem::size_of::<E::G2>();
     ((mem as usize) - MEMORY_PADDING - (2 * core_count * ((1 << MAX_WINDOW_SIZE) + 1) * proj_size))
-        / aff_size
+        / (aff_size + exp_size)
 }
 
 impl<E> SingleMultiexpKernel<E>
