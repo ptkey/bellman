@@ -89,9 +89,10 @@ pub fn lock() -> io::Result<LockedFile> {
     Ok(LockedFile(file))
 }
 
-pub fn unlock(lock: LockedFile) {
-    drop(lock);
+pub fn unlock(lock: &LockedFile) -> io::Result<()> {
+    lock.0.unlock()?;
     info!("GPU lock file released");
+    Ok(())
 }
 
 pub const PRIORITY_LOCK_NAME: &str = "/tmp/bellman.priority.lock";
@@ -113,11 +114,12 @@ pub fn priority_lock() -> io::Result<LockedFile> {
     Ok(LockedFile(file))
 }
 
-pub fn priority_unlock(lock: LockedFile) {
+pub fn priority_unlock(lock: LockedFile) -> io::Result<()> {
     let mut is_me = IS_ME.lock().unwrap();
-    drop(lock);
+    lock.0.unlock()?;
     *is_me = false;
     info!("GPU PRIORITY lock file released");
+    Ok(())
 }
 
 pub fn priority_can_lock() -> io::Result<bool> {

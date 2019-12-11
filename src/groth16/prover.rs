@@ -384,7 +384,7 @@ where
     g_c.add_assign(&l.wait()?);
 
     #[cfg(feature = "gpu")]
-    gpu::unlock(lock);
+    gpu::unlock(&lock)?;
 
     Ok(Proof {
         a: g_a.into_affine(),
