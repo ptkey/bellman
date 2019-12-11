@@ -93,3 +93,37 @@ pub fn unlock(lock: LockedFile) {
     drop(lock);
     info!("GPU lock file released");
 }
+
+pub const PRIORITY_LOCK_NAME: &str = "/tmp/bellman.priority.lock";
+
+use std::sync::Mutex;
+lazy_static::lazy_static! {
+    static ref IS_ME : Mutex<bool> = Mutex::new(false);
+}
+
+pub fn priority_lock() -> io::Result<LockedFile> {
+    let mut is_me = IS_ME.lock().unwrap();
+    let file = File::create(PRIORITY_LOCK_NAME)?;
+    info!("Creating GPU PRIORITY lock file");
+
+    file.lock_exclusive()?;
+    *is_me = true;
+
+    info!("GPU PRIORITY lock file acquired");
+    Ok(LockedFile(file))
+}
+
+pub fn priority_unlock(lock: LockedFile) {
+    let mut is_me = IS_ME.lock().unwrap();
+    drop(lock);
+    *is_me = false;
+    info!("GPU PRIORITY lock file released");
+}
+
+pub fn priority_can_lock() -> io::Result<bool> {
+    // Either taken by me or not taken by somebody else
+    Ok(*IS_ME.lock().unwrap()
+        || File::create(PRIORITY_LOCK_NAME)?
+            .try_lock_exclusive()
+            .is_ok())
+}
