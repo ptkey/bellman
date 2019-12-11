@@ -13,6 +13,7 @@
 
 use ff::{Field, PrimeField, ScalarEngine};
 use groupy::CurveProjective;
+use log::error;
 use paired::Engine;
 
 use std::sync::Mutex;
@@ -99,22 +100,7 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         kern: &mut Option<gpu::FFTKernel<E>>,
     ) -> gpu::GPUResult<()> {
         best_fft(kern, &mut self.coeffs, worker, &self.omegainv, self.exp)?;
-
-        if let Some(ref mut k) = kern {
-            gpu_mul_by_field(k, &mut self.coeffs, &self.minv, self.exp)?;
-        } else {
-            worker.scope(self.coeffs.len(), |scope, chunk| {
-                let minv = self.minv;
-
-                for v in self.coeffs.chunks_mut(chunk) {
-                    scope.spawn(move |_| {
-                        for v in v {
-                            v.group_mul_assign(&minv);
-                        }
-                    });
-                }
-            });
-        }
+        best_mul_by_field(kern, &mut self.coeffs, worker, &self.minv, self.exp)?;
         Ok(())
     }
 
@@ -175,19 +161,7 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             .inverse()
             .unwrap();
 
-        if let Some(ref mut k) = kern {
-            gpu_mul_by_field(k, &mut self.coeffs, &i, self.exp)?;
-        } else {
-            worker.scope(self.coeffs.len(), |scope, chunk| {
-                for v in self.coeffs.chunks_mut(chunk) {
-                    scope.spawn(move |_| {
-                        for v in v {
-                            v.group_mul_assign(&i);
-                        }
-                    });
-                }
-            });
-        }
+        best_mul_by_field(kern, &mut self.coeffs, worker, &i, self.exp)?;
 
         Ok(())
     }
@@ -308,15 +282,44 @@ fn best_fft<E: Engine, T: Group<E>>(
     log_n: u32,
 ) -> gpu::GPUResult<()> {
     if let Some(ref mut k) = kern {
-        gpu_fft(k, a, omega, log_n)?;
-    } else {
-        let log_cpus = worker.log_num_cpus();
-        if log_n <= log_cpus {
-            serial_fft(a, omega, log_n);
+        if let Ok(_) = gpu_fft(k, a, omega, log_n) {
+            return Ok(());
         } else {
-            parallel_fft(a, worker, omega, log_n, log_cpus);
+            error!("GPU FFT failed! Falling back to CPU...");
         }
     }
+    let log_cpus = worker.log_num_cpus();
+    if log_n <= log_cpus {
+        serial_fft(a, omega, log_n);
+    } else {
+        parallel_fft(a, worker, omega, log_n, log_cpus);
+    }
+    Ok(())
+}
+
+pub fn best_mul_by_field<E: Engine, T: Group<E>>(
+    kern: &mut Option<gpu::FFTKernel<E>>,
+    a: &mut [T],
+    worker: &Worker,
+    minv: &E::Fr,
+    log_n: u32,
+) -> gpu::GPUResult<()> {
+    if let Some(ref mut k) = kern {
+        if let Ok(_) = gpu_mul_by_field(k, a, minv, log_n) {
+            return Ok(());
+        } else {
+            error!("GPU Mul-by-field failed! Falling back to CPU...");
+        }
+    }
+    worker.scope(a.len(), |scope, chunk| {
+        for v in a.chunks_mut(chunk) {
+            scope.spawn(move |_| {
+                for v in v {
+                    v.group_mul_assign(&minv);
+                }
+            });
+        }
+    });
     Ok(())
 }
 
