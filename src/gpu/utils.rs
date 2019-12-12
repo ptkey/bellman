@@ -130,3 +130,52 @@ impl PriorityLock {
                 .is_ok())
     }
 }
+
+pub struct LockedKernel<'a, K, F> where F: Fn() -> Option<K>
+{
+    creator: F,
+    supported: bool,
+    kernel: Option<K>,
+    lock: &'a mut GPULock,
+}
+
+use log::{warn};
+impl<'a, K, F> LockedKernel<'a, K, F> where F: Fn() -> Option<K>
+{
+    pub fn new(lock: &'a mut GPULock, f: F) -> LockedKernel<'a, K, F> {
+        let kern = f();
+        if kern.is_some() {
+            info!("GPU is supported!");
+            lock.lock().unwrap();
+        } else {
+            warn!("GPU is NOT supported!");
+        }
+        LockedKernel::<K, F> {
+            supported: kern.is_some(),
+            creator: f,
+            kernel: kern,
+            lock: lock,
+        }
+    }
+    pub fn get(&mut self) -> &mut Option<K> {
+        if !PriorityLock::can_lock().unwrap_or(false) {
+            warn!("GPU acquired by some other process! Freeing up kernels...");
+            self.kernel = None; // This would drop kernel and free up the GPU
+            self.lock.unlock().unwrap();
+        } else if self.supported && self.kernel.is_none() {
+            warn!("GPU is free again! Trying to reacquire GPU...");
+            self.kernel = (self.creator)();
+            if self.kernel.is_some() {
+                self.lock.lock().unwrap();
+            }
+        }
+        &mut self.kernel
+    }
+}
+
+impl<'a, K, F> Drop for LockedKernel<'a, K, F> where F: Fn() -> Option<K>
+{
+    fn drop(&mut self) {
+        self.lock.unlock().unwrap();
+    }
+}
