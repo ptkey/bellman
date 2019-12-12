@@ -628,6 +628,61 @@ where
     }
 }
 
+pub struct LockedFFTKernel<'a, E>
+where
+    E: paired::Engine,
+{
+    supported: bool,
+    log_d: u32,
+    kernel: Option<gpu::FFTKernel<E>>,
+    lock: &'a mut gpu::GPULock,
+}
+
+use log::{info, warn};
+impl<'a, E> LockedFFTKernel<'a, E>
+where
+    E: paired::Engine,
+{
+    pub fn new(lock: &'a mut gpu::GPULock, log_d: u32) -> LockedFFTKernel<'a, E> {
+        let kern = gpu_fft_supported::<E>(log_d).ok();
+        if kern.is_some() {
+            info!("GPU FFT is supported!");
+            lock.lock().unwrap();
+        } else {
+            warn!("GPU FFT is NOT supported!");
+        }
+        LockedFFTKernel::<E> {
+            supported: kern.is_some(),
+            log_d: log_d,
+            kernel: kern,
+            lock: lock,
+        }
+    }
+    pub fn get(&mut self) -> &mut Option<gpu::FFTKernel<E>> {
+        if !gpu::PriorityLock::can_lock().unwrap_or(false) {
+            warn!("GPU acquired by some other process! Freeing up kernels...");
+            self.kernel = None; // This would drop kernel and free up the GPU
+            self.lock.unlock().unwrap();
+        } else if self.supported && self.kernel.is_none() {
+            warn!("GPU is free again! Trying to reacquire GPU...");
+            self.kernel = gpu_fft_supported::<E>(self.log_d).ok();
+            if self.kernel.is_some() {
+                self.lock.lock().unwrap();
+            }
+        }
+        &mut self.kernel
+    }
+}
+
+impl<'a, E> Drop for LockedFFTKernel<'a, E>
+where
+    E: paired::Engine,
+{
+    fn drop(&mut self) {
+        self.lock.unlock().unwrap();
+    }
+}
+
 #[cfg(feature = "gpu-test")]
 #[test]
 pub fn gpu_fft_consistency() {
