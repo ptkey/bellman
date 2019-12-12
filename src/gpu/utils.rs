@@ -170,8 +170,10 @@ where
                 "GPU acquired by some other process! Freeing up {} kernels...",
                 self.name
             );
-            self.kernel = None; // This would drop kernel and free up the GPU
-            self.lock.unlock().unwrap();
+            if self.kernel.is_some() {
+                self.kernel = None; // This would drop kernel and free up the GPU
+                self.lock.unlock().unwrap();
+            }
         } else if self.supported && self.kernel.is_none() {
             info!(
                 "GPU is free again! Trying to reinstantiate {} kernels...",
