@@ -342,3 +342,12 @@ where
         }
     }
 }
+
+impl<E> Drop for MultiexpKernel<E>
+where
+    E: paired::Engine,
+{
+    fn drop(&mut self) {
+        info!("Multiexp kernel dropped!");
+    }
+}

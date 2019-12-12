@@ -213,3 +213,12 @@ where
         Ok(())
     }
 }
+
+impl<E> Drop for FFTKernel<E>
+where
+    E: paired::Engine,
+{
+    fn drop(&mut self) {
+        info!("FFT kernel dropped!");
+    }
+}
