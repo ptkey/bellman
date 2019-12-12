@@ -215,7 +215,7 @@ where
     }
 
     let a = {
-        let mut fft_kern = gpu::LockedKernel::new(&mut lock, || gpu_fft_supported(log_d).ok());
+        let mut fft_kern = gpu::LockedKernel::new(&mut lock, "FFT", || gpu_fft_supported(log_d).ok());
 
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
@@ -241,7 +241,7 @@ where
         Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>())
     };
 
-    let mut multiexp_kern = gpu::LockedKernel::new(&mut lock, || gpu_multiexp_supported().ok());
+    let mut multiexp_kern = gpu::LockedKernel::new(&mut lock, "Multiexp", || gpu_multiexp_supported().ok());
 
     let h = multiexp(
         &worker,

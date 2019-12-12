@@ -134,6 +134,7 @@ impl PriorityLock {
 pub struct LockedKernel<'a, K, F> where F: Fn() -> Option<K>
 {
     creator: F,
+    name: &'static str, // Name of the kernel, for logging purposes
     supported: bool,
     kernel: Option<K>,
     lock: &'a mut GPULock,
@@ -142,17 +143,18 @@ pub struct LockedKernel<'a, K, F> where F: Fn() -> Option<K>
 use log::{warn};
 impl<'a, K, F> LockedKernel<'a, K, F> where F: Fn() -> Option<K>
 {
-    pub fn new(lock: &'a mut GPULock, f: F) -> LockedKernel<'a, K, F> {
+    pub fn new(lock: &'a mut GPULock, name: &'static str, f: F) -> LockedKernel<'a, K, F> {
         let kern = f();
         if kern.is_some() {
-            info!("GPU is supported!");
+            info!("GPU {} is supported!", name);
             lock.lock().unwrap();
         } else {
-            warn!("GPU is NOT supported!");
+            warn!("GPU {} is NOT supported!", name);
         }
         LockedKernel::<K, F> {
             supported: kern.is_some(),
             creator: f,
+            name: name,
             kernel: kern,
             lock: lock,
         }
