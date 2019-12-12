@@ -165,24 +165,26 @@ where
         }
     }
     pub fn get(&mut self) -> &mut Option<K> {
-        if !PriorityLock::can_lock().unwrap_or(false) {
-            warn!(
-                "GPU acquired by some other process! Freeing up {} kernels...",
-                self.name
-            );
-            if self.kernel.is_some() {
-                self.kernel = None; // This would drop kernel and free up the GPU
-                self.lock.unlock().unwrap();
-            }
-        } else if self.supported && self.kernel.is_none() {
-            info!(
-                "GPU is free again! Trying to reinstantiate {} kernels...",
-                self.name
-            );
-            self.lock.lock().unwrap();
-            self.kernel = (self.creator)();
-            if self.kernel.is_none() {
-                self.lock.unlock().unwrap();
+        if self.supported {
+            if !PriorityLock::can_lock().unwrap_or(false) {
+                warn!(
+                    "GPU acquired by some other process! Freeing up {} kernels...",
+                    self.name
+                );
+                if self.kernel.is_some() {
+                    self.kernel = None; // This would drop kernel and free up the GPU
+                    self.lock.unlock().unwrap();
+                }
+            } else if self.kernel.is_none() {
+                info!(
+                    "GPU is free again! Trying to reinstantiate {} kernels...",
+                    self.name
+                );
+                self.lock.lock().unwrap();
+                self.kernel = (self.creator)();
+                if self.kernel.is_none() {
+                    self.lock.unlock().unwrap();
+                }
             }
         }
         &mut self.kernel
