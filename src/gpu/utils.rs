@@ -148,12 +148,13 @@ where
     F: Fn() -> Option<K>,
 {
     pub fn new(lock: &'a mut GPULock, name: &'static str, f: F) -> LockedKernel<'a, K, F> {
+        lock.lock().unwrap();
         let kern = f();
         if kern.is_some() {
             info!("GPU {} is supported!", name);
-            lock.lock().unwrap();
         } else {
             warn!("GPU {} is NOT supported!", name);
+            lock.unlock().unwrap();
         }
         LockedKernel::<K, F> {
             supported: kern.is_some(),
@@ -170,9 +171,10 @@ where
             self.lock.unlock().unwrap();
         } else if self.supported && self.kernel.is_none() {
             warn!("GPU is free again! Trying to reacquire GPU...");
+            self.lock.lock().unwrap();
             self.kernel = (self.creator)();
-            if self.kernel.is_some() {
-                self.lock.lock().unwrap();
+            if self.kernel.is_none() {
+                self.lock.unlock().unwrap();
             }
         }
         &mut self.kernel
