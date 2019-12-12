@@ -150,7 +150,7 @@ where
     where
         G: CurveAffine,
     {
-        if !utils::priority_can_lock().unwrap_or(false) {
+        if !utils::PriorityLock::can_lock().unwrap_or(false) {
             return Err(GPUError {
                 msg: "GPU is forcefully taken by another process!".to_string(),
             });

@@ -184,7 +184,9 @@ where
     C: Circuit<E>,
 {
     #[cfg(feature = "gpu")]
-    let lock = gpu::lock()?;
+    let mut lock = gpu::GPULock::new()?;
+    #[cfg(feature = "gpu")]
+    lock.lock()?;
 
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),
@@ -384,7 +386,7 @@ where
     g_c.add_assign(&l.wait()?);
 
     #[cfg(feature = "gpu")]
-    gpu::unlock(&lock)?;
+    lock.unlock()?;
 
     Ok(Proof {
         a: g_a.into_affine(),
