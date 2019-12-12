@@ -131,7 +131,9 @@ impl PriorityLock {
     }
 }
 
-pub struct LockedKernel<'a, K, F> where F: Fn() -> Option<K>
+pub struct LockedKernel<'a, K, F>
+where
+    F: Fn() -> Option<K>,
 {
     creator: F,
     name: &'static str, // Name of the kernel, for logging purposes
@@ -140,8 +142,10 @@ pub struct LockedKernel<'a, K, F> where F: Fn() -> Option<K>
     lock: &'a mut GPULock,
 }
 
-use log::{warn};
-impl<'a, K, F> LockedKernel<'a, K, F> where F: Fn() -> Option<K>
+use log::warn;
+impl<'a, K, F> LockedKernel<'a, K, F>
+where
+    F: Fn() -> Option<K>,
 {
     pub fn new(lock: &'a mut GPULock, name: &'static str, f: F) -> LockedKernel<'a, K, F> {
         let kern = f();
@@ -175,7 +179,9 @@ impl<'a, K, F> LockedKernel<'a, K, F> where F: Fn() -> Option<K>
     }
 }
 
-impl<'a, K, F> Drop for LockedKernel<'a, K, F> where F: Fn() -> Option<K>
+impl<'a, K, F> Drop for LockedKernel<'a, K, F>
+where
+    F: Fn() -> Option<K>,
 {
     fn drop(&mut self) {
         self.lock.unlock().unwrap();

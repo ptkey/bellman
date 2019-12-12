@@ -8,11 +8,11 @@ use groupy::{CurveAffine, CurveProjective};
 use paired::Engine;
 
 use super::{ParameterSource, Proof};
-use crate::domain::{EvaluationDomain, gpu_fft_supported, Scalar};
+use crate::domain::{gpu_fft_supported, EvaluationDomain, Scalar};
 #[cfg(feature = "gpu")]
 use crate::gpu;
 use crate::multicore::Worker;
-use crate::multiexp::{multiexp, DensityTracker, FullDensity, gpu_multiexp_supported};
+use crate::multiexp::{gpu_multiexp_supported, multiexp, DensityTracker, FullDensity};
 use crate::{Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
 
 fn eval<E: Engine>(
@@ -215,7 +215,8 @@ where
     }
 
     let a = {
-        let mut fft_kern = gpu::LockedKernel::new(&mut lock, "FFT", || gpu_fft_supported(log_d).ok());
+        let mut fft_kern =
+            gpu::LockedKernel::new(&mut lock, "FFT", || gpu_fft_supported(log_d).ok());
 
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
@@ -241,7 +242,8 @@ where
         Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>())
     };
 
-    let mut multiexp_kern = gpu::LockedKernel::new(&mut lock, "Multiexp", || gpu_multiexp_supported().ok());
+    let mut multiexp_kern =
+        gpu::LockedKernel::new(&mut lock, "Multiexp", || gpu_multiexp_supported().ok());
 
     let h = multiexp(
         &worker,
