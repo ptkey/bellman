@@ -9,7 +9,7 @@ use crossbeam::thread;
 use ff::{PrimeField, ScalarEngine};
 use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
-use log::info;
+use log::{error, info};
 use ocl::{Buffer, Device, MemFlags, ProQue};
 use paired::Engine;
 use std::sync::Arc;
@@ -23,7 +23,13 @@ const MEMORY_PADDING: usize = 1 * 1024 * 1024 * 1024; // Consider 1GB of free me
 pub fn get_cpu_utilization() -> f64 {
     use std::env;
     env::var("BELLMAN_CPU_UTILIZATION")
-        .and_then(|v| Ok(v.parse().expect("Invalid BELLMAN_CPU_UTILIZATION!")))
+        .and_then(|v| match v.parse() {
+            Ok(val) => Ok(val),
+            Err(_) => {
+                error!("Invalid BELLMAN_CPU_UTILIZATION! Defaulting to 0...");
+                Ok(0f64)
+            }
+        })
         .unwrap_or(0f64)
         .max(0f64)
         .min(1f64)
