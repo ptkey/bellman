@@ -16,6 +16,7 @@ use crate::multiexp::{create_multiexp_kernel, multiexp, DensityTracker, FullDens
 use crate::{
     Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable, BELLMAN_VERSION,
 };
+use log::info;
 
 fn eval<E: Engine>(
     lc: &LinearCombination<E>,
