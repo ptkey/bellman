@@ -1,6 +1,6 @@
 use crate::gpu::{
     error::{GPUError, GPUResult},
-    sources, structs, GPU_NVIDIA_DEVICES,
+    sources, structs, utils, GPU_NVIDIA_DEVICES,
 };
 use ff::Field;
 use log::info;
@@ -23,6 +23,7 @@ where
     fft_dst_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
     fft_pq_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
     fft_omg_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
+    core_count: usize,
 }
 
 impl<E> FFTKernel<E>
@@ -39,6 +40,7 @@ where
         }
         let device = devices[0]; // Select the first device for FFT
         let pq = ProQue::builder().device(device).src(src).dims(n).build()?;
+        let core_count = utils::get_core_count(device)?;
 
         let srcbuff = Buffer::builder()
             .queue(pq.queue().clone())
@@ -70,6 +72,7 @@ where
             fft_dst_buffer: dstbuff,
             fft_pq_buffer: pqbuff,
             fft_omg_buffer: omgbuff,
+            core_count,
         })
     }
 
@@ -198,6 +201,31 @@ where
             .arg(&self.fft_src_buffer)
             .arg(n)
             .arg(field)
+            .build()?;
+        unsafe {
+            kernel.enq()?;
+        }
+        self.fft_src_buffer.read(ta).enq()?;
+        self.proque.finish()?;
+        Ok(())
+    }
+
+    /// Distribute powers of `g` on `a`
+    /// * `lgn` - Specifies log2 of number of elements
+    pub fn distribute_powers(&mut self, a: &mut [E::Fr], g: &E::Fr, lgn: u32) -> GPUResult<()> {
+        let n = 1u32 << lgn;
+        let ta = unsafe {
+            std::mem::transmute::<&mut [E::Fr], &mut [structs::PrimeFieldStruct<E::Fr>]>(a)
+        };
+        let g = structs::PrimeFieldStruct::<E::Fr>(*g);
+        self.fft_src_buffer.write(&*ta).enq()?;
+        let kernel = self
+            .proque
+            .kernel_builder("distribute_powers")
+            .global_work_size([self.core_count])
+            .arg(&self.fft_src_buffer)
+            .arg(n)
+            .arg(g)
             .build()?;
         unsafe {
             kernel.enq()?;
