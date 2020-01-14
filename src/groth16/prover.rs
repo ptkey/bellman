@@ -228,9 +228,9 @@ where
         c.ifft(&worker, &mut fft_kern)?;
         c.coset_fft(&worker, &mut fft_kern)?;
 
-        a.mul_assign(&worker, &b);
+        a.mul_assign(&worker, &b, &mut fft_kern)?;
         drop(b);
-        a.sub_assign(&worker, &c);
+        a.sub_assign(&worker, &c, &mut fft_kern)?;
         drop(c);
         a.divide_by_z_on_coset(&worker, &mut fft_kern)?;
         a.icoset_fft(&worker, &mut fft_kern)?;

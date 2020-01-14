@@ -234,4 +234,30 @@ where
         self.proque.finish()?;
         Ok(())
     }
+
+    /// Memberwise multiplication/subtraction
+    /// * `lgn` - Specifies log2 of number of elements
+    /// * `sub` - Set true if you want subtraction instead of multiplication
+    pub fn mul_sub(&mut self, a: &mut [E::Fr], b: &[E::Fr], n: usize, sub: bool) -> GPUResult<()> {
+        let ta = unsafe {
+            std::mem::transmute::<&mut [E::Fr], &mut [structs::PrimeFieldStruct<E::Fr>]>(a)
+        };
+        let tb = unsafe { std::mem::transmute::<&[E::Fr], &[structs::PrimeFieldStruct<E::Fr>]>(b) };
+        self.fft_src_buffer.write(&*ta).enq()?;
+        self.fft_dst_buffer.write(&*tb).enq()?;
+        let kernel = self
+            .proque
+            .kernel_builder(if sub { "sub" } else { "mul" })
+            .global_work_size([n])
+            .arg(&self.fft_src_buffer)
+            .arg(&self.fft_dst_buffer)
+            .arg(n as u32)
+            .build()?;
+        unsafe {
+            kernel.enq()?;
+        }
+        self.fft_src_buffer.read(ta).enq()?;
+        self.proque.finish()?;
+        Ok(())
+    }
 }

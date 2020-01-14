@@ -201,41 +201,61 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
     }
 
     /// Perform O(n) multiplication of two polynomials in the domain.
-    pub fn mul_assign(&mut self, worker: &Worker, other: &EvaluationDomain<E, Scalar<E>>) {
+    pub fn mul_assign(
+        &mut self,
+        worker: &Worker,
+        other: &EvaluationDomain<E, Scalar<E>>,
+        kern: &mut Option<gpu::FFTKernel<E>>,
+    ) -> gpu::GPUResult<()> {
         assert_eq!(self.coeffs.len(), other.coeffs.len());
-
-        worker.scope(self.coeffs.len(), |scope, chunk| {
-            for (a, b) in self
-                .coeffs
-                .chunks_mut(chunk)
-                .zip(other.coeffs.chunks(chunk))
-            {
-                scope.spawn(move |_| {
-                    for (a, b) in a.iter_mut().zip(b.iter()) {
-                        a.group_mul_assign(&b.0);
-                    }
-                });
-            }
-        });
+        if let Some(ref mut k) = kern {
+            let n = self.coeffs.len();
+            gpu_mul(k, &mut self.coeffs, &other.coeffs, n)?;
+        } else {
+            worker.scope(self.coeffs.len(), |scope, chunk| {
+                for (a, b) in self
+                    .coeffs
+                    .chunks_mut(chunk)
+                    .zip(other.coeffs.chunks(chunk))
+                {
+                    scope.spawn(move |_| {
+                        for (a, b) in a.iter_mut().zip(b.iter()) {
+                            a.group_mul_assign(&b.0);
+                        }
+                    });
+                }
+            });
+        }
+        Ok(())
     }
 
     /// Perform O(n) subtraction of one polynomial from another in the domain.
-    pub fn sub_assign(&mut self, worker: &Worker, other: &EvaluationDomain<E, G>) {
+    pub fn sub_assign(
+        &mut self,
+        worker: &Worker,
+        other: &EvaluationDomain<E, G>,
+        kern: &mut Option<gpu::FFTKernel<E>>,
+    ) -> gpu::GPUResult<()> {
         assert_eq!(self.coeffs.len(), other.coeffs.len());
-
-        worker.scope(self.coeffs.len(), |scope, chunk| {
-            for (a, b) in self
-                .coeffs
-                .chunks_mut(chunk)
-                .zip(other.coeffs.chunks(chunk))
-            {
-                scope.spawn(move |_| {
-                    for (a, b) in a.iter_mut().zip(b.iter()) {
-                        a.group_sub_assign(&b);
-                    }
-                });
-            }
-        });
+        if let Some(ref mut k) = kern {
+            let n = self.coeffs.len();
+            gpu_sub(k, &mut self.coeffs, &other.coeffs, n)?;
+        } else {
+            worker.scope(self.coeffs.len(), |scope, chunk| {
+                for (a, b) in self
+                    .coeffs
+                    .chunks_mut(chunk)
+                    .zip(other.coeffs.chunks(chunk))
+                {
+                    scope.spawn(move |_| {
+                        for (a, b) in a.iter_mut().zip(b.iter()) {
+                            a.group_sub_assign(&b);
+                        }
+                    });
+                }
+            });
+        }
+        Ok(())
     }
 }
 
@@ -355,6 +375,32 @@ pub fn gpu_mul_by_field<E: Engine, T: Group<E>>(
     // The reason of unsafety is same as above.
     let a = unsafe { std::mem::transmute::<&mut [T], &mut [E::Fr]>(a) };
     kern.mul_by_field(a, minv, log_n)?;
+    Ok(())
+}
+
+pub fn gpu_mul<E: Engine, T: Group<E>>(
+    kern: &mut gpu::FFTKernel<E>,
+    a: &mut [T],
+    b: &[Scalar<E>],
+    n: usize,
+) -> gpu::GPUResult<()> {
+    // The reason of unsafety is same as above.
+    let a = unsafe { std::mem::transmute::<&mut [T], &mut [E::Fr]>(a) };
+    let b = unsafe { std::mem::transmute::<&[Scalar<E>], &[E::Fr]>(b) };
+    kern.mul_sub(a, b, n, false)?;
+    Ok(())
+}
+
+pub fn gpu_sub<E: Engine, T: Group<E>>(
+    kern: &mut gpu::FFTKernel<E>,
+    a: &mut [T],
+    b: &[T],
+    n: usize,
+) -> gpu::GPUResult<()> {
+    // The reason of unsafety is same as above.
+    let a = unsafe { std::mem::transmute::<&mut [T], &mut [E::Fr]>(a) };
+    let b = unsafe { std::mem::transmute::<&[T], &[E::Fr]>(b) };
+    kern.mul_sub(a, b, n, true)?;
     Ok(())
 }
 

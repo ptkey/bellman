@@ -94,3 +94,19 @@ __kernel void distribute_powers(__global FIELD* elements,
     field = FIELD_mul(field, g);
   }
 }
+
+/// Memberwise multiplication
+__kernel void mul(__global FIELD* a,
+                  __global FIELD* b,
+                  uint n) {
+  uint gid = get_global_id(0);
+  a[gid] = FIELD_mul(a[gid], b[gid]);
+}
+
+/// Memberwise subtraction
+__kernel void sub(__global FIELD* a,
+                  __global FIELD* b,
+                  uint n) {
+  uint gid = get_global_id(0);
+  a[gid] = FIELD_sub(a[gid], b[gid]);
+}
