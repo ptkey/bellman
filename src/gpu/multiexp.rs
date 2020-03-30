@@ -59,7 +59,7 @@ where
 
 fn calc_num_groups(core_count: usize, num_windows: usize) -> usize {
     // Observations show that we get the best performance when num_groups * num_windows ~= 2 * CUDA_CORES
-    return 2 * core_count / num_windows;
+    2 * core_count / num_windows
 }
 
 fn calc_window_size(n: usize, exp_bits: usize, core_count: usize) -> usize {
@@ -77,7 +77,8 @@ fn calc_window_size(n: usize, exp_bits: usize, core_count: usize) -> usize {
             return w;
         }
     }
-    return MAX_WINDOW_SIZE;
+
+    MAX_WINDOW_SIZE
 }
 
 fn calc_best_chunk_size(max_window_size: usize, core_count: usize, exp_bits: usize) -> usize {
@@ -170,7 +171,7 @@ where
             g2_bucket_buffer: g2buckbuff,
             g2_result_buffer: g2resbuff,
             exp_buffer: expbuff,
-            core_count: core_count,
+            core_count,
             n,
         })
     }
@@ -302,6 +303,7 @@ where
             .filter(|res| res.is_ok())
             .map(|res| res.unwrap())
             .collect();
+
         if kernels.is_empty() {
             return Err(GPUError::Simple("No working GPUs found!"));
         }
@@ -318,10 +320,10 @@ where
                 k.n
             );
         }
-        return Ok(MultiexpKernel::<E> {
+        Ok(MultiexpKernel::<E> {
             kernels,
             _lock: lock,
-        });
+        })
     }
 
     pub fn multiexp<G>(

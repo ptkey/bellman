@@ -33,7 +33,7 @@ fn calc_inv(a: u64) -> u64 {
         inv = inv.wrapping_mul(inv);
         inv = inv.wrapping_mul(a);
     }
-    return inv.wrapping_neg();
+    inv.wrapping_neg()
 }
 
 fn params<F>(name: &str) -> String
@@ -95,25 +95,25 @@ where
 }
 
 fn field2(field2: &str, field: &str) -> String {
-    return String::from(FIELD2_SRC)
+    String::from(FIELD2_SRC)
         .replace("FIELD2", field2)
-        .replace("FIELD", field);
+        .replace("FIELD", field)
 }
 
 fn fft(field: &str) -> String {
-    return String::from(FFT_SRC).replace("FIELD", field);
+    String::from(FFT_SRC).replace("FIELD", field)
 }
 
 fn ec(field: &str, point: &str) -> String {
-    return String::from(EC_SRC)
+    String::from(EC_SRC)
         .replace("FIELD", field)
-        .replace("POINT", point);
+        .replace("POINT", point)
 }
 
 fn multiexp(point: &str, exp: &str) -> String {
-    return String::from(MULTIEXP_SRC)
+    String::from(MULTIEXP_SRC)
         .replace("POINT", point)
-        .replace("EXPONENT", exp);
+        .replace("EXPONENT", exp)
 }
 
 // WARNING: This function works only with Short Weierstrass Jacobian curves with Fq2 extension field.

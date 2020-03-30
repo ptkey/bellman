@@ -12,9 +12,8 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
     if env::var("BELLMAN_NO_GPU").is_ok() {
         return Err(GPUError::Simple("GPU accelerator is disabled!"));
     }
-
     let platform = Platform::list()?.into_iter().find(|&p| match p.name() {
-        Ok(p) => p == platform_name,
+        Ok(p) => p == platform_name.to_string(),
         Err(_) => false,
     });
     match platform {
