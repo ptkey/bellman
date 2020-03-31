@@ -16,7 +16,8 @@ typedef struct {
 
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
 POINT_projective POINT_double(POINT_projective inp) {
-  if(FIELD_eq(inp.z, FIELD_ZERO)) return inp;
+  const FIELD tmp_Zero = FIELD_ZERO;
+  if(FIELD_eq(inp.z, tmp_Zero)) return inp;
   FIELD a = FIELD_sqr(inp.x); // A = X1^2
   FIELD b = FIELD_sqr(inp.y); // B = Y1^2
   FIELD c = FIELD_sqr(b); // C = B^2
@@ -43,7 +44,8 @@ POINT_projective POINT_double(POINT_projective inp) {
 POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
   if(b.inf) return a;
 
-  if(FIELD_eq(a.z, FIELD_ZERO)) {
+  const FIELD tmp_Zero = FIELD_ZERO;
+  if(FIELD_eq(a.z, tmp_Zero)) {
     FIELD tmp = FIELD_ONE;
     a.x = b.x;
     a.y = b.y;
@@ -83,8 +85,9 @@ POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
 POINT_projective POINT_add(POINT_projective a, POINT_projective b) {
 
-  if(FIELD_eq(a.z, FIELD_ZERO)) return b;
-  if(FIELD_eq(b.z, FIELD_ZERO)) return a;
+  const FIELD tmp_Zero = FIELD_ZERO;
+  if(FIELD_eq(a.z, tmp_Zero)) return b;
+  if(FIELD_eq(b.z, tmp_Zero)) return a;
 
   FIELD z1z1 = FIELD_sqr(a.z); // Z1Z1 = Z1^2
   FIELD z2z2 = FIELD_sqr(b.z); // Z2Z2 = Z2^2

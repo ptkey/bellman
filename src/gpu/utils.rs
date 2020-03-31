@@ -35,6 +35,10 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
 lazy_static::lazy_static! {
     static ref CORE_COUNTS: HashMap<String, usize> = {
         let mut core_counts : HashMap<String, usize> = vec![
+            // AMD
+            ("gfx1010".to_string(), 2560),
+
+            // NVIDIA
             ("TITAN RTX".to_string(), 4608),
 
             ("Tesla V100".to_string(), 5120),

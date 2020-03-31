@@ -54,11 +54,14 @@ FIELD FIELD_sub_(FIELD a, FIELD b) {
  */
 FIELD FIELD_reduce(limb *limbs) {
   bool carry2 = 0;
+  const FIELD local_FIELD_P = FIELD_P;
+
   for(uchar i = 0; i < FIELD_LIMBS; i++) {
     limb u = FIELD_INV * limbs[i];
     limb carry = 0;
-    for(uchar j = 0; j < FIELD_LIMBS; j++)
-      limbs[i + j] = mac_with_carry(u, FIELD_P.val[j], limbs[i + j], &carry);
+    for(uchar j = 0; j < FIELD_LIMBS; j++) {
+        limbs[i + j] = mac_with_carry(u, local_FIELD_P.val[j], limbs[i + j], &carry);
+    }
     limbs[i + FIELD_LIMBS] = add2_with_carry(limbs[i + FIELD_LIMBS], carry, &carry2);
   }
 
@@ -66,8 +69,9 @@ FIELD FIELD_reduce(limb *limbs) {
   FIELD result;
   for(uchar i = 0; i < FIELD_LIMBS; i++) result.val[i] = limbs[i+FIELD_LIMBS];
 
-  if(FIELD_gte(result, FIELD_P))
-    result = FIELD_sub_(result, FIELD_P);
+  if(FIELD_gte(result, local_FIELD_P)) {
+      result = FIELD_sub_(result, local_FIELD_P);
+  }
 
   return result;
 }
@@ -92,14 +96,16 @@ FIELD FIELD_mul(FIELD a, FIELD b) {
 // Modular subtraction
 FIELD FIELD_sub(FIELD a, FIELD b) {
   FIELD res = FIELD_sub_(a, b);
-  if(!FIELD_gte(a, b)) res = FIELD_add_(res, FIELD_P);
+  const FIELD local_FIELD_P = FIELD_P;
+  if(!FIELD_gte(a, b)) res = FIELD_add_(res, local_FIELD_P);
   return res;
 }
 
 // Modular addition
 FIELD FIELD_add(FIELD a, FIELD b) {
   FIELD res = FIELD_add_(a, b);
-  if(FIELD_gte(res, FIELD_P)) res = FIELD_sub_(res, FIELD_P);
+  const FIELD local_FIELD_P = FIELD_P;
+  if(FIELD_gte(res, local_FIELD_P)) res = FIELD_sub_(res, local_FIELD_P);
   return res;
 }
 
@@ -135,10 +141,12 @@ FIELD FIELD_sqr(FIELD a) {
 // Left-shift the limbs by one bit and subtract by modulus in case of overflow.
 // Faster version of FIELD_add(a, a)
 FIELD FIELD_double(FIELD a) {
-  for(uchar i = FIELD_LIMBS - 1; i >= 1; i--)
-    a.val[i] = (a.val[i] << 1) | (a.val[i - 1] >> (LIMB_BITS - 1));
+  for(uchar i = FIELD_LIMBS - 1; i >= 1; i--){
+      a.val[i] = (a.val[i] << 1) | (a.val[i - 1] >> (LIMB_BITS - 1));
+  }
   a.val[0] <<= 1;
-  if(FIELD_gte(a, FIELD_P)) a = FIELD_sub_(a, FIELD_P);
+  const FIELD local_FIELD_P = FIELD_P;
+  if(FIELD_gte(a, local_FIELD_P)) a = FIELD_sub_(a, local_FIELD_P);
   return a;
 }
 

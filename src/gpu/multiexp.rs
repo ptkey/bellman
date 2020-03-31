@@ -116,13 +116,6 @@ where
             _ => ocl::Platform::default(),
         };
 
-        let pq = ProQue::builder()
-            .platform(platform)
-            .device(d)
-            .src(src)
-            .dims(1)
-            .build()?;
-
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let core_count = utils::get_core_count(d)?;
         let mem = utils::get_memory(d)?;
@@ -130,6 +123,14 @@ where
         let best_n = calc_best_chunk_size(MAX_WINDOW_SIZE, core_count, exp_bits);
         let n = std::cmp::min(max_n, best_n);
         let max_bucket_len = 1 << MAX_WINDOW_SIZE;
+
+        println!("Before calling builder! ");
+        let pq = ProQue::builder()
+            .platform(platform)
+            .device(d)
+            .src(src)
+            .dims(1)
+            .build()?;
 
         // Each group will have `num_windows` threads and as there are `num_groups` groups, there will
         // be `num_groups` * `num_windows` threads in total.
