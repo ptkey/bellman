@@ -43,10 +43,3 @@ mod nogpu;
 
 #[cfg(not(feature = "gpu"))]
 pub use self::nogpu::*;
-
-#[cfg(feature = "gpu")]
-use ocl::Device;
-#[cfg(feature = "gpu")]
-lazy_static::lazy_static! {
-    pub static ref GPU_NVIDIA_DEVICES: Vec<Device> = get_devices(GPU_NVIDIA_PLATFORM_NAME).unwrap_or_default();
-}

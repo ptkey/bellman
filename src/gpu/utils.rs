@@ -6,9 +6,10 @@ use std::collections::HashMap;
 use std::env;
 
 pub const GPU_NVIDIA_PLATFORM_NAME: &str = "NVIDIA CUDA";
-// pub const CPU_INTEL_PLATFORM_NAME: &str = "Intel(R) CPU Runtime for OpenCL(TM) Applications";
+pub const GPU_AMD_PLATFORM_NAME: &str = "AMD Accelerated Parallel Processing";
+//pub const CPU_INTEL_PLATFORM_NAME: &str = "Intel(R) CPU Runtime for OpenCL(TM) Applications";
 
-pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
+pub fn get_platform(platform_name: &str) -> GPUResult<Platform> {
     if env::var("BELLMAN_NO_GPU").is_ok() {
         return Err(GPUError::Simple("GPU accelerator is disabled!"));
     }
@@ -17,9 +18,18 @@ pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
         Err(_) => false,
     });
     match platform {
-        Some(p) => Ok(Device::list_all(p)?),
+        Some(p) => Ok(p),
         None => Err(GPUError::Simple("GPU platform not found!")),
     }
+}
+
+pub fn get_devices(platform_name: &str) -> GPUResult<Vec<Device>> {
+    if env::var("BELLMAN_NO_GPU").is_ok() {
+        return Err(GPUError::Simple("GPU accelerator is disabled!"));
+    }
+    let platform = get_platform(platform_name)?;
+
+    Ok(Device::list_all(platform)?)
 }
 
 lazy_static::lazy_static! {
@@ -72,5 +82,19 @@ pub fn get_memory(d: Device) -> GPUResult<u64> {
     match d.info(ocl::enums::DeviceInfo::GlobalMemSize)? {
         ocl::enums::DeviceInfoResult::GlobalMemSize(sz) => Ok(sz),
         _ => Err(GPUError::Simple("Cannot extract GPU memory!")),
+    }
+}
+
+#[cfg(feature = "gpu")]
+#[test]
+pub fn test_list_platform() {
+    for p in Platform::list().unwrap_or_default().iter() {
+        println!("Platform: {:?} - {:?}", p.name(), p.as_ptr());
+        for d in Device::list_all(p).unwrap_or_default().iter() {
+            let info_kind = ocl::enums::DeviceInfo::MaxComputeUnits;
+            let dev_info = d.info(info_kind).unwrap();
+            println!("Device: {:?} {:?}", d.name(), dev_info);
+        }
+        println!()
     }
 }

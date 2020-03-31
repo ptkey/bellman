@@ -10,6 +10,7 @@ use std::sync::Arc;
 use super::multicore::Worker;
 use super::SynthesisError;
 use crate::gpu;
+use crate::gpu::GPU_AMD_PLATFORM_NAME;
 
 /// An object that builds a source of bases.
 pub trait SourceBuilder<G: CurveAffine>: Send + Sync + 'static + Clone {
@@ -363,11 +364,11 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-pub fn create_multiexp_kernel<E>() -> Option<gpu::MultiexpKernel<E>>
+pub fn create_multiexp_kernel<E>(platform_name: &str) -> Option<gpu::MultiexpKernel<E>>
 where
     E: paired::Engine,
 {
-    match gpu::MultiexpKernel::<E>::create() {
+    match gpu::MultiexpKernel::<E>::create(platform_name) {
         Ok(k) => {
             info!("GPU Multiexp kernel instantiated!");
             Some(k)
@@ -387,7 +388,7 @@ pub fn gpu_multiexp_consistency() {
 
     const MAX_LOG_D: usize = 20;
     const START_LOG_D: usize = 10;
-    let mut kern = gpu::MultiexpKernel::<Bls12>::create().ok();
+    let mut kern = gpu::MultiexpKernel::<Bls12>::create(GPU_AMD_PLATFORM_NAME).ok();
     if kern.is_none() {
         panic!("Cannot initialize kernel!");
     }

@@ -44,9 +44,10 @@ POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
   if(b.inf) return a;
 
   if(FIELD_eq(a.z, FIELD_ZERO)) {
+    FIELD tmp = FIELD_ONE;
     a.x = b.x;
     a.y = b.y;
-    a.z = FIELD_ONE;
+    a.z = tmp;
     return a;
   }
 

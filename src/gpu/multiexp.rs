@@ -3,7 +3,7 @@ use super::locks;
 use super::sources;
 use super::structs;
 use super::utils;
-use super::GPU_NVIDIA_DEVICES;
+use crate::gpu::get_devices;
 use crate::multicore::Worker;
 use crate::multiexp::{multiexp as cpu_multiexp, FullDensity};
 use crossbeam::thread;
@@ -110,7 +110,18 @@ where
 {
     pub fn create(d: Device) -> GPUResult<SingleMultiexpKernel<E>> {
         let src = sources::kernel::<E>();
-        let pq = ProQue::builder().device(d).src(src).dims(1).build()?;
+
+        let platform = match d.info(ocl::enums::DeviceInfo::Platform)? {
+            ocl::enums::DeviceInfoResult::Platform(p) => ocl::Platform::new(p),
+            _ => ocl::Platform::default(),
+        };
+
+        let pq = ProQue::builder()
+            .platform(platform)
+            .device(d)
+            .src(src)
+            .dims(1)
+            .build()?;
 
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let core_count = utils::get_core_count(d)?;
@@ -294,10 +305,12 @@ impl<E> MultiexpKernel<E>
 where
     E: Engine,
 {
-    pub fn create() -> GPUResult<MultiexpKernel<E>> {
+    pub fn create(platform_name: &str) -> GPUResult<MultiexpKernel<E>> {
         let lock = locks::GPULock::lock();
 
-        let kernels: Vec<_> = GPU_NVIDIA_DEVICES
+        let devices = &get_devices(platform_name).unwrap_or_default();
+
+        let kernels: Vec<_> = devices
             .iter()
             .map(|d| SingleMultiexpKernel::<E>::create(*d))
             .filter(|res| res.is_ok())

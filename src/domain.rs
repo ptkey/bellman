@@ -561,11 +561,11 @@ fn parallel_fft_consistency() {
     test_consistency::<Bls12, _>(rng);
 }
 
-pub fn create_fft_kernel<E>(log_d: u32) -> Option<gpu::FFTKernel<E>>
+pub fn create_fft_kernel<E>(log_d: u32, platform_name: &str) -> Option<gpu::FFTKernel<E>>
 where
     E: Engine,
 {
-    match gpu::FFTKernel::create(1 << log_d) {
+    match gpu::FFTKernel::create(1 << log_d, platform_name) {
         Ok(k) => {
             info!("GPU FFT kernel instantiated!");
             Some(k)
@@ -577,25 +577,48 @@ where
     }
 }
 
-#[cfg(feature = "gpu")]
-#[test]
-pub fn gpu_fft_consistency() {
-    use paired::bls12_381::{Bls12, Fr};
-    use std::time::Instant;
-    let rng = &mut rand::thread_rng();
+#[cfg(test)]
+mod tests {
+    use crate::domain::{gpu_fft, parallel_fft, serial_fft, EvaluationDomain, Scalar};
+    use crate::gpu;
+    use crate::gpu::GPU_AMD_PLATFORM_NAME;
+    use crate::multicore::Worker;
+    use ff::Field;
+    use ocl::{Device, Platform};
 
-    let worker = Worker::new();
-    let log_cpus = worker.log_num_cpus();
-    let mut kern = gpu::FFTKernel::create(1 << 24).expect("Cannot initialize kernel!");
+    #[cfg(feature = "gpu")]
+    #[test]
+    pub fn gpu_fft_consistency() {
+        for p in Platform::list().unwrap_or_default().iter() {
+            println!("Platform: {:?} - {:?}", p.name(), p.as_ptr());
+            for d in Device::list_all(p).unwrap_or_default().iter() {
+                let info_kind = ocl::enums::DeviceInfo::MaxComputeUnits;
+                let dev_info = d.info(info_kind).unwrap();
+                println!("Device: {:?} {:?}", d.name(), dev_info);
+            }
+            println!()
+        }
 
-    for log_d in 1..25 {
-        let d = 1 << log_d;
+        use paired::bls12_381::{Bls12, Fr};
+        use std::time::Instant;
+        let rng = &mut rand::thread_rng();
 
-        let elems = (0..d)
-            .map(|_| Scalar::<Bls12>(Fr::random(rng)))
-            .collect::<Vec<_>>();
-        let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
-        let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+        // let platform_name = GPU_NVIDIA_PLATFORM_NAME;
+        let platform_name = GPU_AMD_PLATFORM_NAME;
+
+        let worker = Worker::new();
+        let log_cpus = worker.log_num_cpus();
+        let mut kern =
+            gpu::FFTKernel::create(1 << 24, platform_name).expect("Cannot initialize kernel!");
+
+        for log_d in 1..25 {
+            let d = 1 << log_d;
+
+            let elems = (0..d)
+                .map(|_| Scalar::<Bls12>(Fr::random(rng)))
+                .collect::<Vec<_>>();
+            let mut v1 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
+            let mut v2 = EvaluationDomain::from_coeffs(elems.clone()).unwrap();
 
         println!("Testing FFT for {} elements...", d);
 
@@ -613,9 +636,10 @@ pub fn gpu_fft_consistency() {
         let cpu_dur = now.elapsed().as_secs() * 1000 as u64 + now.elapsed().subsec_millis() as u64;
         println!("CPU ({} cores) took {}ms.", 1 << log_cpus, cpu_dur);
 
-        println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
+            println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
 
-        assert!(v1.coeffs == v2.coeffs);
-        println!("============================");
+            assert!(v1.coeffs == v2.coeffs);
+            println!("============================");
+        }
     }
 }
