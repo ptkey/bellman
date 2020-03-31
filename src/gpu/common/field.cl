@@ -5,7 +5,7 @@ typedef struct { limb val[FIELD_LIMBS]; } FIELD;
 
 // Greater than or equal
 bool FIELD_gte(FIELD a, FIELD b) {
-  for(char i = FIELD_LIMBS - 1; i >= 0; i--){
+  for(uchar i = FIELD_LIMBS - 1; i >= 0; i--){
     if(a.val[i] > b.val[i])
       return true;
     if(a.val[i] < b.val[i])
@@ -16,9 +16,10 @@ bool FIELD_gte(FIELD a, FIELD b) {
 
 // Equals
 bool FIELD_eq(FIELD a, FIELD b) {
-  for(uchar i = 0; i < FIELD_LIMBS; i++)
+  for(uchar i = 0; i < FIELD_LIMBS; i++) {
     if(a.val[i] != b.val[i])
       return false;
+  }
   return true;
 }
 
@@ -84,8 +85,9 @@ FIELD FIELD_mul(FIELD a, FIELD b) {
   limb res[FIELD_LIMBS * 2] = {0};
   for(uchar i = 0; i < FIELD_LIMBS; i++) {
     limb carry = 0;
-    for(uchar j = 0; j < FIELD_LIMBS; j++)
-      res[i + j] = mac_with_carry(a.val[i], b.val[j], res[i + j], &carry);
+    for(uchar j = 0; j < FIELD_LIMBS; j++) {
+       res[i + j] = mac_with_carry(a.val[i], b.val[j], res[i + j], &carry);
+    }
     res[i + FIELD_LIMBS] = carry;
   }
 
@@ -124,8 +126,9 @@ FIELD FIELD_sqr(FIELD a) {
 
   // Double the result
   res[FIELD_LIMBS * 2 - 1] = res[FIELD_LIMBS * 2 - 2] >> (LIMB_BITS - 1);
-  for(uchar i = FIELD_LIMBS * 2 - 2; i > 1; i--)
+  for(uchar i = FIELD_LIMBS * 2 - 2; i > 1; i--) {
     res[i] = (res[i] << 1) | (res[i - 1] >> (LIMB_BITS - 1));
+  }
   res[1] <<= 1;
 
   // Process diagonal elements

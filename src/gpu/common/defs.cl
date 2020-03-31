@@ -37,7 +37,7 @@ limb add_with_carry(limb a, limb *b) {
     *b = hi;
     return lo;
   #else
-    limb lo = a + *b;
+    const limb lo = a + *b;
     *b = lo < a;
     return lo;
   #endif
